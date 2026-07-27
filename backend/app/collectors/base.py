@@ -5,14 +5,20 @@ from typing import Any
 from app.collectors.types import CollectorRunResult, CompanyLead
 from app.core.logger import get_logger
 from app.exceptions import DuplicateRecordError
+from app.qualification.service import QualificationService
 from app.schemas.company import CreateCompanyRequest
 from app.services.company_service import CompanyService
 from app.utils.url import normalize_website
 
 
 class BaseCollector(ABC):
-    def __init__(self, company_service: CompanyService) -> None:
+    def __init__(
+        self,
+        company_service: CompanyService,
+        qualification_service: QualificationService | None = None,
+    ) -> None:
         self.company_service = company_service
+        self.qualification_service = qualification_service or QualificationService()
         self.logger = get_logger(self.__class__.__name__)
 
     @property
@@ -87,7 +93,9 @@ class BaseCollector(ABC):
         valid_leads = await self.validate(normalized_leads)
         valid_count = len(valid_leads)
 
-        saved_count = await self.save(valid_leads)
+        qualified_leads = self.qualification_service.filter_qualified(valid_leads)
+
+        saved_count = await self.save(qualified_leads)
 
         duration_ms = (perf_counter() - started_at) * 1000
         self.logger.info(

@@ -12,6 +12,11 @@ from app.repositories.company_repository import CompanyRepository
 from app.services.company_service import CompanyService
 
 
+QUALIFYING_DESCRIPTION = (
+    "A sufficiently detailed description for lead qualification scoring purposes."
+)
+
+
 class StubCollector(BaseCollector):
     def __init__(self, company_service: CompanyService, raw_items: list[dict[str, Any]]) -> None:
         super().__init__(company_service)
@@ -66,8 +71,20 @@ async def test_base_collector_run_pipeline(test_db: Any) -> None:
     collector = StubCollector(
         service,
         raw_items=[
-            {"name": "Acme", "website": "https://acme.example", "source": "stub"},
-            {"name": "Beta", "website": "https://beta.example", "source": "stub"},
+            {
+                "name": "Acme",
+                "website": "https://acme.example",
+                "source": "stub",
+                "description": QUALIFYING_DESCRIPTION,
+                "tags": ["SaaS"],
+            },
+            {
+                "name": "Beta",
+                "website": "https://beta.example",
+                "source": "stub",
+                "description": QUALIFYING_DESCRIPTION,
+                "tags": ["SaaS"],
+            },
         ],
     )
 
@@ -87,9 +104,24 @@ async def test_base_collector_validation_deduplicates_websites(test_db: Any) -> 
     collector = StubCollector(
         service,
         raw_items=[
-            {"name": "First", "website": "https://dup.example"},
-            {"name": "Second", "website": "http://www.dup.example/"},
-            {"name": "Valid", "website": "https://unique.example"},
+            {
+                "name": "First",
+                "website": "https://dup.example",
+                "description": QUALIFYING_DESCRIPTION,
+                "tags": ["SaaS"],
+            },
+            {
+                "name": "Second",
+                "website": "http://www.dup.example/",
+                "description": QUALIFYING_DESCRIPTION,
+                "tags": ["SaaS"],
+            },
+            {
+                "name": "Valid",
+                "website": "https://unique.example",
+                "description": QUALIFYING_DESCRIPTION,
+                "tags": ["SaaS"],
+            },
         ],
     )
 
@@ -108,7 +140,12 @@ async def test_base_collector_validation_requires_name_and_website(test_db: Any)
         raw_items=[
             {"name": "", "website": "https://missing-name.example"},
             {"name": "Missing Website", "website": ""},
-            {"name": "Valid", "website": "https://valid.example"},
+            {
+                "name": "Valid",
+                "website": "https://valid.example",
+                "description": QUALIFYING_DESCRIPTION,
+                "tags": ["SaaS"],
+            },
         ],
     )
 

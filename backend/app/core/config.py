@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     product_hunt_max_companies: int = Field(default=50, ge=1, le=200)
     product_hunt_api_token: str | None = None
 
+    qualification_passing_score: int = Field(default=50, ge=0, le=100)
+    qualification_enabled_rules: str = (
+        "website_exists,company_name_exists,description_exists,not_localhost,"
+        "not_github_io,not_vercel_app,not_netlify_app,not_notion_site,"
+        "description_length,has_topic"
+    )
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
