@@ -1,11 +1,13 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
+import CompaniesPage from "./pages/CompaniesPage";
 import HomePage from "./pages/HomePage";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/companies" element={<CompaniesPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

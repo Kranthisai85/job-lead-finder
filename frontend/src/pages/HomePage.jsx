@@ -1,33 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
-
-import { apiClient } from "../services/apiClient";
-
-function fetchHealth() {
-  return apiClient.get("/health").then((response) => response.data);
-}
+import Layout from "../components/Layout";
 
 export default function HomePage() {
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["health"],
-    queryFn: fetchHealth
-  });
-
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <section className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-4 px-6 text-center">
-        <h1 className="text-4xl font-bold tracking-tight">lead-finder</h1>
+    <Layout>
+      <section className="mx-auto flex min-h-[70vh] max-w-3xl flex-col items-center justify-center gap-4 text-center">
+        <h1 className="text-4xl font-bold tracking-tight text-white">lead-finder</h1>
         <p className="text-slate-300">
-          Frontend scaffold is ready. Business logic will be added later.
-        </p>
-        <p className="rounded border border-slate-700 bg-slate-900 px-4 py-2 text-sm">
-          Backend status:{" "}
-          {isLoading
-            ? "checking..."
-            : isError
-              ? "unreachable"
-              : data?.status ?? "unknown"}
+          Dashboard scaffold is ready. Use the sidebar to manage companies.
         </p>
       </section>
-    </main>
+    </Layout>
   );
 }

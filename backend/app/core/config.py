@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     log_backup_count: int = Field(default=5, ge=1)
 
     request_id_header: str = "X-Request-ID"
+    cors_origins: str = "*"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
