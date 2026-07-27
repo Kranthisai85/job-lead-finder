@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     request_id_header: str = "X-Request-ID"
     cors_origins: str = "*"
 
+    product_hunt_api_url: str = "https://api.producthunt.com/v2/api/graphql"
+    product_hunt_user_agent: str = "LeadFinder/1.0 (lead-finder-backend)"
+    product_hunt_timeout: float = Field(default=30.0, ge=1.0)
+    product_hunt_max_companies: int = Field(default=50, ge=1, le=200)
+    product_hunt_api_token: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 

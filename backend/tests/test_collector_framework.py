@@ -1,4 +1,5 @@
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -140,7 +141,11 @@ async def test_producthunt_collector_returns_empty(test_db: Any) -> None:
     service = CompanyService(CompanyRepository())
     collector = CollectorFactory.create("producthunt", service)
 
-    result = await collector.run()
+    with patch(
+        "app.collectors.producthunt.fetch_latest_product_hunt_posts",
+        new=AsyncMock(return_value=([], 0)),
+    ):
+        result = await collector.run()
 
     assert result.collector_name == "producthunt"
     assert result.collected_count == 0
