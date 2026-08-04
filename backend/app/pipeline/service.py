@@ -5,6 +5,8 @@ from app.crawler.service import WebsiteCrawlerService
 from app.email_patterns.service import EmailPatternService
 from app.intelligence.service import LeadIntelligenceService
 from app.mobile_detection.service import MobileAppDetectionService
+from app.pipeline.persistence import PipelinePersistenceService
+from app.pipeline.persistence_types import PersistenceResult
 from app.pipeline.processor import LeadProcessor
 from app.pipeline.types import CompleteLead, ProcessingReport, StartupSeed
 from app.qualification.service import QualificationService
@@ -18,6 +20,7 @@ class LeadPipelineService:
         self,
         *,
         processor: LeadProcessor | None = None,
+        persistence_service: PipelinePersistenceService | None = None,
         crawler_service: WebsiteCrawlerService | None = None,
         company_profile_service: CompanyProfileService | None = None,
         technology_service: TechnologyDetectionService | None = None,
@@ -38,6 +41,7 @@ class LeadPipelineService:
             email_pattern_service=email_pattern_service,
             intelligence_service=intelligence_service,
         )
+        self.persistence_service = persistence_service
 
     async def process(self, startup: StartupSeed) -> CompleteLead:
         self.logger.info(
@@ -57,6 +61,25 @@ class LeadPipelineService:
             lead.processing.total_duration_ms,
         )
         return lead
+
+    async def process_and_persist(
+        self, startup: StartupSeed
+    ) -> tuple[CompleteLead, PersistenceResult]:
+        lead = await self.process(startup)
+        persistence = self.persistence_service or PipelinePersistenceService()
+        persist_result = await persistence.persist(lead)
+        self.logger.info(
+            (
+                "service=LeadPipelineService action=process_and_persist "
+                "company=%s company_id=%s created=%s updated=%s duration_ms=%.2f"
+            ),
+            startup.name,
+            persist_result.company_id,
+            persist_result.company_created,
+            persist_result.company_updated,
+            persist_result.duration_ms,
+        )
+        return lead, persist_result
 
     async def process_with_report(
         self, startup: StartupSeed

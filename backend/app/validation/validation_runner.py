@@ -14,9 +14,14 @@ from app.core.logger import get_logger, setup_logging
 from app.crawler.base import HttpWebsiteCrawler
 from app.crawler.service import WebsiteCrawlerService
 from app.crawler.types import WebsiteProfile
+from app.db.mongo import close_mongo_connection, connect_to_mongo
 from app.email_patterns.service import EmailPatternService
 from app.intelligence.service import LeadIntelligenceService
 from app.mobile_detection.service import MobileAppDetectionService
+from app.pipeline.persistence import PipelinePersistenceService
+from app.pipeline.types import CompleteLead
+from app.pipeline.types import ProcessingMetadata
+from app.pipeline.types import StartupSeed as PipelineStartupSeed
 from app.qualification.service import QualificationService
 from app.schemas.company import CompanyResponse
 from app.technology.service import TechnologyDetectionService
@@ -88,6 +93,7 @@ class ValidationPipeline:
         contact_service: ContactDiscoveryService | None = None,
         intelligence_service: LeadIntelligenceService | None = None,
         email_pattern_service: EmailPatternService | None = None,
+        persistence_service: PipelinePersistenceService | None = None,
     ) -> None:
         self.crawler_service = crawler_service or WebsiteCrawlerService(
             crawler=HtmlCapturingCrawler()
@@ -98,6 +104,7 @@ class ValidationPipeline:
         self.contact_service = contact_service or ContactDiscoveryService()
         self.intelligence_service = intelligence_service or LeadIntelligenceService()
         self.email_pattern_service = email_pattern_service or EmailPatternService()
+        self.persistence_service = persistence_service
 
     async def run(self, startups: list[StartupSeed]) -> ValidationReport:
         results: list[CompanyValidationResult] = []
@@ -105,6 +112,29 @@ class ValidationPipeline:
             results.append(await self.process_startup(startup))
         summary = self._build_summary(results)
         return ValidationReport(results=results, summary=summary)
+
+    @staticmethod
+    def to_complete_lead(startup: StartupSeed, result: CompanyValidationResult) -> CompleteLead:
+        return CompleteLead(
+            startup=PipelineStartupSeed(
+                name=startup.name,
+                website=startup.website,
+                description=startup.description,
+                source=startup.source,
+            ),
+            website_profile=result.website_profile,
+            technology_report=result.technology_report,
+            mobile_report=result.mobile_detection,
+            qualification_report=result.qualification,
+            contacts=result.contact_discovery,
+            email_pattern_report=result.email_patterns,
+            lead_intelligence=result.lead_intelligence,
+            processing=ProcessingMetadata(
+                success=not bool(result.errors),
+                errors=list(result.errors),
+                total_duration_ms=0.0,
+            ),
+        )
 
     async def process_startup(self, startup: StartupSeed) -> CompanyValidationResult:
         started_at = perf_counter()
@@ -212,6 +242,26 @@ class ValidationPipeline:
             is_good_lead=result.is_good_lead,
         )
         result.errors = errors
+
+        if self.persistence_service is not None:
+            try:
+                persist_result = await self.persistence_service.persist(
+                    self.to_complete_lead(startup, result)
+                )
+                if persist_result.errors:
+                    result.errors.extend(persist_result.errors)
+                logger.info(
+                    ("validation_persist company=%s company_id=%s " "created=%s updated=%s"),
+                    startup.name,
+                    persist_result.company_id,
+                    persist_result.company_created,
+                    persist_result.company_updated,
+                )
+            except Exception as exc:
+                message = f"Persistence failed: {exc}"
+                result.errors.append(message)
+                logger.exception(message)
+
         return result
 
     @staticmethod
@@ -248,6 +298,7 @@ async def run_validation(
     input_path: Path | None = None,
     output_path: Path | None = None,
     limit: int | None = None,
+    persist: bool = False,
 ) -> str:
     setup_logging()
     path = input_path or DEFAULT_SAMPLE_DATA
@@ -255,17 +306,32 @@ async def run_validation(
     if limit is not None:
         startups = startups[:limit]
 
-    logger.info("validation_started companies=%d source=%s", len(startups), path)
-    pipeline = ValidationPipeline()
-    report = await pipeline.run(startups)
-    rendered = render_report(report)
+    logger.info(
+        "validation_started companies=%d source=%s persist=%s",
+        len(startups),
+        path,
+        persist,
+    )
 
-    if output_path is not None:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(rendered, encoding="utf-8")
-        logger.info("validation_report_written path=%s", output_path)
+    persistence_service: PipelinePersistenceService | None = None
+    if persist:
+        await connect_to_mongo()
+        persistence_service = PipelinePersistenceService()
 
-    return rendered
+    try:
+        pipeline = ValidationPipeline(persistence_service=persistence_service)
+        report = await pipeline.run(startups)
+        rendered = render_report(report)
+
+        if output_path is not None:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(rendered, encoding="utf-8")
+            logger.info("validation_report_written path=%s", output_path)
+
+        return rendered
+    finally:
+        if persist:
+            await close_mongo_connection()
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -288,6 +354,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional max number of startups to process",
     )
+    parser.add_argument(
+        "--persist",
+        action="store_true",
+        help="Persist successful validation leads into MongoDB",
+    )
     return parser
 
 
@@ -298,6 +369,7 @@ def main() -> None:
             input_path=args.input,
             output_path=args.output,
             limit=args.limit,
+            persist=args.persist,
         )
     )
     print(rendered)
