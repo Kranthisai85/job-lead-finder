@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     technology_minimum_confidence: int = Field(default=50, ge=0, le=100)
     technology_enabled_technologies: str = "*"
 
+    mobile_detection_enabled: bool = True
+    mobile_detection_minimum_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
