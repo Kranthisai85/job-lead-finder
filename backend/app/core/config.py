@@ -37,6 +37,11 @@ class Settings(BaseSettings):
         "description_length,has_topic"
     )
 
+    crawler_timeout: float = Field(default=20.0, ge=1.0)
+    crawler_max_redirects: int = Field(default=5, ge=0)
+    crawler_max_html_size: int = Field(default=2_000_000, ge=1)
+    crawler_user_agent: str = "LeadFinderBot/1.0 (+https://lead-finder.local)"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
