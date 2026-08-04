@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     crawler_max_html_size: int = Field(default=2_000_000, ge=1)
     crawler_user_agent: str = "LeadFinderBot/1.0 (+https://lead-finder.local)"
 
+    technology_minimum_confidence: int = Field(default=50, ge=0, le=100)
+    technology_enabled_technologies: str = "*"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
