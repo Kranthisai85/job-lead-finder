@@ -19,7 +19,7 @@ Production-ready monorepo scaffold for a startup lead discovery platform.
 ## Start
 
 1. Optionally adjust `backend/.env`.
-2. Optionally adjust `VITE_API_URL` in root-level `.env` (defaults to `http://localhost:8000`).
+2. Optionally adjust `VITE_API_URL` in root-level `.env` (defaults to `http://localhost:8001`).
 3. Run:
 
 ```bash
