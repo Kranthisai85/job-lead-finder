@@ -1,5 +1,5 @@
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -10,6 +10,10 @@ from app.collectors.producthunt_parser import (
     extract_topics,
     parse_launch_date,
     parse_product_hunt_response,
+)
+from app.collectors.producthunt_redirect import (
+    is_producthunt_redirect,
+    resolve_producthunt_redirect,
 )
 from app.repositories.company_repository import CompanyRepository
 from app.services.company_service import CompanyService
@@ -155,3 +159,71 @@ async def test_producthunt_fetch_unavailable_returns_empty() -> None:
 
     assert products == []
     assert pages == 0
+
+
+def test_is_producthunt_redirect() -> None:
+    assert is_producthunt_redirect("https://www.producthunt.com/r/YVXYQHUZQFWTKE")
+    assert is_producthunt_redirect("https://producthunt.com/r/abc")
+    assert not is_producthunt_redirect("https://www.acme.com/")
+    assert not is_producthunt_redirect("https://www.producthunt.com/posts/acme")
+    assert not is_producthunt_redirect("")
+
+
+@pytest.mark.asyncio
+async def test_resolve_producthunt_redirect_follows_redirect() -> None:
+    client = AsyncMock()
+    response = MagicMock()
+    response.url = "https://www.acme.com/"
+    response.status_code = 200
+    client.get = AsyncMock(return_value=response)
+
+    final = await resolve_producthunt_redirect(
+        "https://www.producthunt.com/r/YVXYQHUZQFWTKE",
+        client=client,
+    )
+
+    assert final == "https://www.acme.com/"
+    client.get.assert_awaited_once_with("https://www.producthunt.com/r/YVXYQHUZQFWTKE")
+
+
+@pytest.mark.asyncio
+async def test_resolve_producthunt_redirect_skips_non_redirect() -> None:
+    client = AsyncMock()
+    client.get = AsyncMock()
+
+    final = await resolve_producthunt_redirect("https://www.acme.com/", client=client)
+
+    assert final == "https://www.acme.com/"
+    client.get.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_resolve_producthunt_redirect_failure_returns_original() -> None:
+    client = AsyncMock()
+    client.get = AsyncMock(side_effect=ConnectionError("network down"))
+
+    original = "https://www.producthunt.com/r/YVXYQHUZQFWTKE"
+    final = await resolve_producthunt_redirect(original, client=client)
+
+    assert final == original
+
+
+@pytest.mark.asyncio
+async def test_producthunt_normalize_resolves_redirect_urls(test_db: Any) -> None:
+    service = CompanyService(CompanyRepository())
+    collector = ProductHuntCollector(service)
+
+    redirect_product = {
+        **SAMPLE_PRODUCT,
+        "website": "https://www.producthunt.com/r/YVXYQHUZQFWTKE",
+    }
+
+    with patch(
+        "app.collectors.producthunt.resolve_producthunt_redirect",
+        new=AsyncMock(return_value="https://www.acme.com/"),
+    ) as resolve_mock:
+        leads = await collector.normalize([redirect_product])
+
+    assert len(leads) == 1
+    assert leads[0].website == "https://www.acme.com/"
+    resolve_mock.assert_awaited_once()
