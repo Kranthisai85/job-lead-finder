@@ -1,0 +1,141 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+
+from app.core.logger import get_logger
+from app.email_queue.document import EmailQueueEntry
+from app.email_queue.types import EmailQueueItem, EmailQueueStatus
+from app.repositories.base_repository import BaseRepository
+
+
+class QueueRepository(BaseRepository[EmailQueueEntry]):
+    MAX_RETRIES = 3
+
+    def __init__(self) -> None:
+        super().__init__(EmailQueueEntry)
+        self.logger = get_logger(__name__)
+
+    async def create(self, payload: dict[str, Any] | EmailQueueEntry) -> EmailQueueEntry:
+        entry = await super().create(payload)
+        self.logger.info(
+            "email_queued id=%s company_id=%s contact_id=%s status=%s",
+            entry.id,
+            entry.company_id,
+            entry.contact_id,
+            entry.status.value,
+        )
+        return entry
+
+    async def approve(self, item_id: str) -> EmailQueueEntry | None:
+        return await self._update_status(
+            item_id,
+            EmailQueueStatus.APPROVED,
+            extra={"approved_at": datetime.now(timezone.utc), "error_message": None},
+            log_action="approved",
+        )
+
+    async def reject(self, item_id: str, *, reason: str | None = None) -> EmailQueueEntry | None:
+        return await self._update_status(
+            item_id,
+            EmailQueueStatus.CANCELLED,
+            extra={"error_message": reason},
+            log_action="rejected",
+        )
+
+    async def get_pending(self) -> list[EmailQueueEntry]:
+        return await self.find_many({"status": EmailQueueStatus.PENDING.value})
+
+    async def get_approved(self) -> list[EmailQueueEntry]:
+        return await self.find_many({"status": EmailQueueStatus.APPROVED.value})
+
+    async def get_retryable_failed(self) -> list[EmailQueueEntry]:
+        return await self.find_many(
+            {
+                "status": EmailQueueStatus.FAILED.value,
+                "retry_count": {"$lt": self.MAX_RETRIES},
+            }
+        )
+
+    async def mark_sending(self, item_id: str) -> EmailQueueEntry | None:
+        return await self._update_status(item_id, EmailQueueStatus.SENDING, log_action="sending")
+
+    async def mark_sent(self, item_id: str) -> EmailQueueEntry | None:
+        return await self._update_status(
+            item_id,
+            EmailQueueStatus.SENT,
+            extra={"sent_at": datetime.now(timezone.utc), "error_message": None},
+            log_action="sent",
+        )
+
+    async def mark_failed(self, item_id: str, *, error: str) -> EmailQueueEntry | None:
+        entry = await self.find_by_id(item_id)
+        if entry is None:
+            return None
+        retry_count = entry.retry_count + 1
+        updated = await self.update(
+            item_id,
+            {
+                "status": EmailQueueStatus.FAILED,
+                "error_message": error,
+                "retry_count": retry_count,
+            },
+        )
+        if updated is not None:
+            self.logger.warning(
+                "email_failed id=%s retry_count=%d error=%s",
+                item_id,
+                retry_count,
+                error,
+            )
+        return updated
+
+    async def find_by_id_item(self, item_id: str) -> EmailQueueEntry | None:
+        return await self.find_by_id(item_id)
+
+    async def count_by_status(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for status in EmailQueueStatus:
+            counts[status.value] = await self.count({"status": status.value})
+        return counts
+
+    async def _update_status(
+        self,
+        item_id: str,
+        status: EmailQueueStatus,
+        *,
+        extra: dict[str, Any] | None = None,
+        log_action: str | None = None,
+    ) -> EmailQueueEntry | None:
+        update_data: dict[str, Any] = {"status": status}
+        if extra:
+            update_data.update(extra)
+        updated = await self.update(item_id, update_data)
+        if updated is not None and log_action:
+            self.logger.info(
+                "email_%s id=%s status=%s",
+                log_action,
+                item_id,
+                status.value,
+            )
+        return updated
+
+    @staticmethod
+    def to_item(entry: EmailQueueEntry) -> EmailQueueItem:
+        return EmailQueueItem(
+            id=str(entry.id),
+            company_id=entry.company_id,
+            contact_id=entry.contact_id,
+            recipient_name=entry.recipient_name,
+            recipient_email=entry.recipient_email,
+            subject=entry.subject,
+            body=entry.body,
+            status=entry.status,
+            created_at=entry.created_at,
+            approved_at=entry.approved_at,
+            sent_at=entry.sent_at,
+            error_message=entry.error_message,
+            generation_source=entry.generation_source,
+            lead_score=entry.lead_score,
+            retry_count=entry.retry_count,
+        )

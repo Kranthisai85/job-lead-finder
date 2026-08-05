@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     ollama_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     ollama_max_tokens: int = Field(default=512, ge=1, le=4096)
 
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_tls: bool = True
+    from_email: str = ""
+    dry_run: bool = True
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
