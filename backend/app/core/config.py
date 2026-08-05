@@ -29,9 +29,8 @@ class Settings(BaseSettings):
     product_hunt_timeout: float = Field(default=30.0, ge=1.0)
     product_hunt_max_companies: int = Field(default=50, ge=1, le=200)
     product_hunt_api_token: str | None = None
-    # None = auto (headed inside Docker). Datacenter IPs often need headed+Xvfb for Cloudflare.
-    product_hunt_playwright_headed: bool | None = None
-    product_hunt_challenge_wait_ms: int = Field(default=60_000, ge=5_000, le=180_000)
+    # Hard cap per product website resolution (Cloudflare must not block the pipeline).
+    product_hunt_website_resolve_timeout: float = Field(default=5.0, ge=0.5, le=30.0)
 
     qualification_passing_score: int = Field(default=50, ge=0, le=100)
     qualification_enabled_rules: str = (

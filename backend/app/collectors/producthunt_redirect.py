@@ -1,18 +1,20 @@
 from __future__ import annotations
 
+import asyncio
 import json
-import os
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlparse, urlunparse
 
 import httpx
-from playwright.async_api import Browser, Page, async_playwright
+from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
 from app.core.config import settings
 from app.core.logger import get_logger
+from app.utils.url import is_producthunt_redirect as _url_is_producthunt_redirect
 
 logger = get_logger(__name__)
 
@@ -27,14 +29,6 @@ VISIT_LINK_SELECTORS: tuple[str, ...] = (
     'a[data-test="visit-button"]',
     'a[href*="producthunt.com/r/"]',
     'a[href^="/r/"]',
-)
-
-VISIT_LINK_NAMES: tuple[str, ...] = (
-    "Visit website",
-    "Go to website",
-    "Get it",
-    "Website",
-    "Visit",
 )
 
 BLOCKED_EXTERNAL_HOSTS: frozenset[str] = frozenset(
@@ -63,31 +57,24 @@ INTERMEDIATE_HOSTS: frozenset[str] = frozenset(
     }
 )
 
-PRODUCT_READY_SELECTORS = (
-    'a[data-test="visit-website-button"], '
-    'a[data-test="post-product-link"], '
-    'a[href*="/r/"], '
-    "#__NEXT_DATA__, "
-    'script[type="application/ld+json"]'
-)
-
-STEALTH_INIT_SCRIPT = """
-Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
-Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
-window.chrome = window.chrome || { runtime: {} };
-"""
+# Hard cap for any single website resolution attempt.
+DEFAULT_RESOLVE_TIMEOUT_S = 5.0
+# How long to wait for Cloudflare to clear before aborting (fail fast).
+CF_DETECT_TIMEOUT_MS = 2_000
 
 
-def _challenge_wait_ms() -> int:
-    return int(settings.product_hunt_challenge_wait_ms)
+@dataclass(frozen=True, slots=True)
+class WebsiteResolution:
+    website: str
+    resolved: bool
+    source: str | None = None
 
 
-def _should_use_headed() -> bool:
-    configured = settings.product_hunt_playwright_headed
-    if configured is not None:
-        return bool(configured)
-    return Path("/.dockerenv").exists() or bool(os.environ.get("DISPLAY"))
+def _resolve_timeout_s() -> float:
+    configured = getattr(settings, "product_hunt_website_resolve_timeout", None)
+    if configured is None:
+        return DEFAULT_RESOLVE_TIMEOUT_S
+    return float(configured)
 
 
 def _reset_session_flags() -> None:
@@ -99,7 +86,7 @@ def _reset_session_flags() -> None:
 def _mark_cloudflare_blocked() -> None:
     global _CF_BLOCKED
     if not _CF_BLOCKED:
-        logger.warning("producthunt_cloudflare_blocked aborting_further_page_loads=true")
+        logger.warning("producthunt_cloudflare_blocked aborting_further_browser_resolution=true")
     _CF_BLOCKED = True
 
 
@@ -121,10 +108,7 @@ def is_producthunt_host(url: str) -> bool:
 
 
 def is_producthunt_redirect(url: str) -> bool:
-    cleaned = url.strip()
-    if not cleaned or not is_producthunt_host(cleaned):
-        return False
-    return urlparse(cleaned).path.startswith("/r/")
+    return _url_is_producthunt_redirect(url)
 
 
 def is_intermediate_host(url: str) -> bool:
@@ -152,7 +136,6 @@ def strip_tracking_params(url: str) -> str:
     parsed = urlparse(url.strip())
     if is_producthunt_redirect(url) or is_producthunt_host(url):
         return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
-    # Keep company URLs clean of PH referral params.
     query_parts = [
         part
         for part in parsed.query.split("&")
@@ -176,28 +159,58 @@ def _absolute_url(href: str, base_url: str) -> str:
 
 def product_page_candidates(product_page_url: str) -> list[str]:
     cleaned = strip_tracking_params(product_page_url)
-    candidates = [cleaned]
-    if "/products/" in cleaned:
-        alt = cleaned.replace("/products/", "/posts/", 1)
-        if alt not in candidates:
-            candidates.append(alt)
-    elif "/posts/" in cleaned:
-        alt = cleaned.replace("/posts/", "/products/", 1)
-        if alt not in candidates:
-            candidates.append(alt)
-    return candidates
+    return [cleaned]
 
 
-def _safe_fallback(fallback_website: str) -> str:
-    if not fallback_website.strip():
-        return ""
-    if is_producthunt_redirect(fallback_website) or is_intermediate_host(fallback_website):
-        return ""
-    return fallback_website
+async def _write_debug_html(page: Page, *, reason: str) -> None:
+    global _DEBUG_HTML_WRITTEN
+    if _DEBUG_HTML_WRITTEN:
+        return
+    try:
+        html = await page.content()
+        DEBUG_HTML_PATH.parent.mkdir(parents=True, exist_ok=True)
+        DEBUG_HTML_PATH.write_text(html, encoding="utf-8")
+        _DEBUG_HTML_WRITTEN = True
+        title = ""
+        with suppress(Exception):
+            title = await page.title()
+        logger.warning(
+            "producthunt_debug_html_written path=%s reason=%s title=%s url=%s",
+            DEBUG_HTML_PATH,
+            reason,
+            title,
+            page.url,
+        )
+    except Exception as exc:
+        logger.warning("producthunt_debug_html_failed error=%s", exc)
 
 
-async def resolve_redirect_via_http(redirect_url: str) -> str | None:
-    """Resolve Product Hunt /r/ links via Location header when Cloudflare allows it."""
+async def page_has_cloudflare_challenge(page: Page) -> bool:
+    """Detect Cloudflare immediately from URL, title, or challenge HTML markers."""
+    if is_intermediate_host(page.url):
+        return True
+    try:
+        title = (await page.title()).lower()
+    except Exception:
+        title = ""
+    if "just a moment" in title or "attention required" in title:
+        return True
+    try:
+        has_challenge = await page.evaluate(
+            """() => {
+                const html = (document.documentElement && document.documentElement.innerHTML) || '';
+                return html.includes('cf-browser-verification')
+                    || html.includes('challenge-platform')
+                    || html.includes('cf-challenge')
+                    || html.includes('cdn-cgi/challenge');
+            }"""
+        )
+        return bool(has_challenge)
+    except Exception:
+        return False
+
+
+async def resolve_redirect_via_http(redirect_url: str, *, timeout_s: float) -> str | None:
     cleaned = strip_tracking_params(redirect_url)
     if not is_producthunt_redirect(cleaned):
         return None
@@ -210,136 +223,57 @@ async def resolve_redirect_via_http(redirect_url: str) -> str | None:
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
     }
-    timeout = httpx.Timeout(settings.product_hunt_timeout)
+    timeout = httpx.Timeout(max(0.5, timeout_s))
     try:
         async with httpx.AsyncClient(follow_redirects=False, timeout=timeout) as client:
-            for method in ("HEAD", "GET"):
-                response = await client.request(method, cleaned, headers=headers)
-                location = response.headers.get("location") or response.headers.get("Location")
-                if location:
-                    absolute = strip_tracking_params(_absolute_url(location, cleaned))
-                    if is_external_company_url(absolute):
-                        return absolute
+            response = await client.get(cleaned, headers=headers)
+            location = response.headers.get("location") or response.headers.get("Location")
+            if location:
+                absolute = strip_tracking_params(_absolute_url(location, cleaned))
+                if is_external_company_url(absolute):
+                    return absolute
     except Exception as exc:
         logger.debug("producthunt_http_redirect_failed url=%s error=%s", cleaned, exc)
     return None
 
 
-async def _write_debug_html(page: Page, *, reason: str) -> None:
-    global _DEBUG_HTML_WRITTEN
-    if _DEBUG_HTML_WRITTEN:
-        return
-    try:
-        html = await page.content()
-        DEBUG_HTML_PATH.parent.mkdir(parents=True, exist_ok=True)
-        DEBUG_HTML_PATH.write_text(html, encoding="utf-8")
-        _DEBUG_HTML_WRITTEN = True
-        logger.warning(
-            "producthunt_debug_html_written path=%s reason=%s title=%s url=%s",
-            DEBUG_HTML_PATH,
-            reason,
-            await page.title(),
-            page.url,
-        )
-    except Exception as exc:
-        logger.warning("producthunt_debug_html_failed error=%s", exc)
-
-
-async def _is_challenge_page(page: Page) -> bool:
-    if is_intermediate_host(page.url):
-        return True
-    try:
-        title = (await page.title()).lower()
-    except Exception:
-        return False
-    return "just a moment" in title or "attention required" in title
-
-
-async def _wait_for_challenge_clear(page: Page) -> bool:
-    try:
-        await page.wait_for_function(
-            """() => {
-                const title = (document.title || '').toLowerCase();
-                return !title.includes('just a moment') && !title.includes('attention required');
-            }""",
-            timeout=_challenge_wait_ms(),
-        )
-        return not await _is_challenge_page(page)
-    except Exception:
-        return not await _is_challenge_page(page)
-
-
 @asynccontextmanager
 async def producthunt_browser_page() -> AsyncIterator[Page]:
-    """Yield a shared Playwright page configured for Product Hunt."""
+    """Yield a Playwright page; always close browser/context to avoid TargetClosedError."""
     _reset_session_flags()
-    headed = _should_use_headed()
-    launch_args = [
-        "--disable-blink-features=AutomationControlled",
-        "--no-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-infobars",
-        "--window-size=1365,900",
-    ]
-    logger.info(
-        "producthunt_browser_launch headed=%s display=%s",
-        headed,
-        os.environ.get("DISPLAY", ""),
-    )
-    async with async_playwright() as playwright:
-        browser: Browser = await playwright.chromium.launch(
-            headless=not headed,
-            args=launch_args,
-        )
-        try:
-            context = await browser.new_context(
-                user_agent=(
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/131.0.0.0 Safari/537.36"
-                ),
-                viewport={"width": 1365, "height": 900},
-                locale="en-US",
-                timezone_id="America/Los_Angeles",
-            )
-            await context.add_init_script(STEALTH_INIT_SCRIPT)
-            page = await context.new_page()
-            # Warm homepage so Cloudflare challenge can clear once per session.
-            try:
-                await page.goto(
-                    "https://www.producthunt.com/",
-                    wait_until="domcontentloaded",
-                    timeout=int(settings.product_hunt_timeout * 1000),
-                )
-                cleared = await _wait_for_challenge_clear(page)
-                if not cleared:
-                    await _write_debug_html(page, reason="cloudflare_challenge_warmup")
-                    _mark_cloudflare_blocked()
-                else:
-                    logger.info("producthunt_warmup_ok title=%s", await page.title())
-            except Exception as exc:
-                logger.warning("producthunt_warmup_failed error=%s", exc)
-            yield page
-        finally:
-            await browser.close()
-
-
-async def _goto_product_page(page: Page, url: str) -> bool:
-    if _CF_BLOCKED:
-        return False
-    timeout_ms = int(settings.product_hunt_timeout * 1000)
-    await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-    cleared = await _wait_for_challenge_clear(page)
-    if not cleared:
-        await _write_debug_html(page, reason="cloudflare_challenge")
-        _mark_cloudflare_blocked()
-        return False
+    playwright_cm = async_playwright()
+    playwright = await playwright_cm.__aenter__()
+    browser: Browser | None = None
+    context: BrowserContext | None = None
     try:
-        await page.wait_for_selector(PRODUCT_READY_SELECTORS, timeout=15_000)
-    except Exception:
-        # Page may still be usable; continue to extraction strategies.
-        pass
-    return True
+        browser = await playwright.chromium.launch(
+            headless=True,
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+            ],
+        )
+        context = await browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/131.0.0.0 Safari/537.36"
+            ),
+            viewport={"width": 1365, "height": 900},
+            locale="en-US",
+        )
+        page = await context.new_page()
+        yield page
+    finally:
+        if context is not None:
+            with suppress(Exception):
+                await context.close()
+        if browser is not None:
+            with suppress(Exception):
+                await browser.close()
+        with suppress(Exception):
+            await playwright_cm.__aexit__(None, None, None)
 
 
 async def _read_href(page: Page, selector: str) -> str | None:
@@ -360,20 +294,6 @@ async def extract_via_visit_button(page: Page, base_url: str) -> str | None:
             return absolute
         if is_producthunt_redirect(absolute):
             return absolute
-
-    for name in VISIT_LINK_NAMES:
-        locator = page.get_by_role("link", name=name).first
-        try:
-            if await locator.count() == 0:
-                continue
-            href = await locator.get_attribute("href")
-        except Exception:
-            continue
-        if not href:
-            continue
-        absolute = strip_tracking_params(_absolute_url(href, base_url))
-        if is_external_company_url(absolute) or is_producthunt_redirect(absolute):
-            return absolute
     return None
 
 
@@ -383,7 +303,7 @@ async def extract_via_external_links(page: Page, base_url: str) -> str | None:
         count = await anchors.count()
     except Exception:
         return None
-    for index in range(min(count, 80)):
+    for index in range(min(count, 40)):
         try:
             href = await anchors.nth(index).get_attribute("href")
         except Exception:
@@ -450,7 +370,7 @@ async def extract_via_json_ld(page: Page) -> str | None:
         except json.JSONDecodeError:
             continue
         found = _walk_for_website_candidate(data)
-        if found and not is_producthunt_host(found):
+        if found and is_external_company_url(found):
             return found
     return None
 
@@ -483,174 +403,139 @@ async def extract_via_meta_tags(page: Page) -> str | None:
     return None
 
 
-async def _follow_redirect_with_playwright(page: Page, redirect_url: str) -> str | None:
-    if _CF_BLOCKED:
-        return None
-    cleaned = strip_tracking_params(redirect_url)
-    timeout_ms = int(settings.product_hunt_timeout * 1000)
-    redirect_locations: list[str] = []
-
-    def _on_response(response: Any) -> None:
-        try:
-            status = int(getattr(response, "status", 0) or 0)
-            headers = getattr(response, "headers", {}) or {}
-            location = headers.get("location") or headers.get("Location")
-            if status in {301, 302, 303, 307, 308} and location:
-                redirect_locations.append(_absolute_url(str(location), str(response.url)))
-            response_url = str(getattr(response, "url", "") or "")
-            if response_url:
-                redirect_locations.append(response_url)
-        except Exception:
-            return
-
-    page.on("response", _on_response)
-    try:
-        await page.goto(cleaned, wait_until="domcontentloaded", timeout=timeout_ms)
-        cleared = await _wait_for_challenge_clear(page)
-        if not cleared:
-            await _write_debug_html(page, reason="cloudflare_challenge_redirect")
-            _mark_cloudflare_blocked()
-            return None
-        if is_external_company_url(page.url):
-            return strip_tracking_params(page.url)
-        for location in reversed(redirect_locations):
-            if is_external_company_url(location):
-                return strip_tracking_params(location)
-        return None
-    except Exception as exc:
-        logger.warning(
-            "producthunt_playwright_redirect_failed url=%s error=%s",
-            cleaned,
-            exc,
-        )
-        return None
-    finally:
-        try:
-            page.remove_listener("response", _on_response)
-        except Exception:
-            pass
-
-
-async def resolve_redirect_url(page: Page, redirect_url: str) -> str | None:
-    cleaned = strip_tracking_params(redirect_url)
-    if is_external_company_url(cleaned):
-        return cleaned
-    if not is_producthunt_redirect(cleaned):
-        return None
-    http_hit = await resolve_redirect_via_http(cleaned)
-    if http_hit:
-        return http_hit
-    return await _follow_redirect_with_playwright(page, cleaned)
-
-
-async def _maybe_resolve_candidate(page: Page, candidate: str | None, *, source: str) -> str | None:
-    if not candidate:
-        return None
-    if is_external_company_url(candidate):
-        logger.info("producthunt_website_extracted source=%s website=%s", source, candidate)
-        return candidate
-    if is_producthunt_redirect(candidate):
-        followed = await resolve_redirect_url(page, candidate)
-        if followed:
-            logger.info(
-                "producthunt_website_extracted source=%s website=%s via=redirect",
-                source,
-                followed,
-            )
-            return followed
-    return None
-
-
-async def extract_website_from_product_page(
-    product_page_url: str,
-    *,
-    page: Page,
-    fallback_website: str,
-) -> str:
-    """Extract company website from a Product Hunt product page using multiple strategies."""
-    cleaned_product_url = strip_tracking_params(product_page_url)
-
-    if is_producthunt_redirect(fallback_website):
-        http_hit = await resolve_redirect_via_http(fallback_website)
-        if http_hit:
-            logger.info(
-                "producthunt_website_extracted source=http_redirect website=%s",
-                http_hit,
-            )
-            return http_hit
-
-    if _CF_BLOCKED:
-        logger.warning(
-            "producthunt_website_skipped_cf_blocked product=%s",
-            cleaned_product_url,
-        )
-        return _safe_fallback(fallback_website)
-
-    page_loaded = False
-    for candidate_page in product_page_candidates(cleaned_product_url):
-        if _CF_BLOCKED:
-            break
-        try:
-            if await _goto_product_page(page, candidate_page):
-                cleaned_product_url = candidate_page
-                page_loaded = True
-                break
-        except Exception as exc:
-            logger.warning(
-                "producthunt_product_page_load_failed url=%s error=%s",
-                candidate_page,
-                exc,
-            )
-
-    if not page_loaded:
-        # Last chance: follow GraphQL /r/ URL with the warmed browser session.
-        resolved = await _maybe_resolve_candidate(
-            page,
-            fallback_website if is_producthunt_redirect(fallback_website) else None,
-            source="graphql_redirect",
-        )
-        if resolved:
-            return resolved
-        return _safe_fallback(fallback_website)
-
+async def _quick_extract_from_loaded_page(page: Page, product_url: str) -> str | None:
     strategies: list[tuple[str, Any]] = [
-        ("visit_button", lambda: extract_via_visit_button(page, cleaned_product_url)),
-        ("external_links", lambda: extract_via_external_links(page, cleaned_product_url)),
+        ("visit_button", lambda: extract_via_visit_button(page, product_url)),
+        ("external_links", lambda: extract_via_external_links(page, product_url)),
         ("json_ld", lambda: extract_via_json_ld(page)),
         ("next_data", lambda: extract_via_next_data(page)),
         ("meta_tags", lambda: extract_via_meta_tags(page)),
     ]
-
     for source, run_strategy in strategies:
         try:
             candidate = await run_strategy()
         except Exception as exc:
-            logger.warning(
-                "producthunt_strategy_failed source=%s error=%s",
-                source,
-                exc,
-            )
+            logger.debug("producthunt_strategy_failed source=%s error=%s", source, exc)
             continue
-        resolved = await _maybe_resolve_candidate(page, candidate, source=source)
-        if resolved:
-            return resolved
+        if not candidate:
+            continue
+        if is_external_company_url(candidate):
+            logger.info(
+                "producthunt_website_extracted source=%s website=%s",
+                source,
+                candidate,
+            )
+            return str(candidate)
+        if is_producthunt_redirect(candidate):
+            # Nested /r/ on the page — treat as unresolved for this strategy.
+            continue
+    return None
 
+
+async def _extract_via_playwright(
+    page: Page,
+    *,
+    product_page_url: str | None,
+    fallback_website: str,
+    timeout_s: float,
+) -> WebsiteResolution | None:
+    if _CF_BLOCKED:
+        return None
+
+    goto_timeout_ms = max(1_000, int(timeout_s * 1000))
+    targets: list[str] = []
+    if product_page_url and product_page_url.strip():
+        targets.extend(product_page_candidates(product_page_url))
     if is_producthunt_redirect(fallback_website):
-        resolved = await _maybe_resolve_candidate(
-            page,
-            fallback_website,
-            source="graphql_redirect",
-        )
-        if resolved:
-            return resolved
+        targets.append(strip_tracking_params(fallback_website))
 
-    await _write_debug_html(page, reason="website_not_found")
-    logger.warning(
-        "producthunt_website_not_found product=%s fallback=%s",
-        cleaned_product_url,
-        fallback_website,
+    seen: set[str] = set()
+    for target in targets:
+        if target in seen or _CF_BLOCKED:
+            continue
+        seen.add(target)
+        try:
+            await page.goto(target, wait_until="domcontentloaded", timeout=goto_timeout_ms)
+        except Exception as exc:
+            logger.debug("producthunt_goto_failed url=%s error=%s", target, exc)
+            continue
+
+        # Give the challenge page a brief moment to paint, then abort immediately.
+        with suppress(Exception):
+            await page.wait_for_timeout(min(500, CF_DETECT_TIMEOUT_MS))
+
+        if await page_has_cloudflare_challenge(page):
+            await _write_debug_html(page, reason="cloudflare_challenge")
+            _mark_cloudflare_blocked()
+            title = ""
+            with suppress(Exception):
+                title = await page.title()
+            logger.warning(
+                "producthunt_cloudflare_detected title=%s url=%s aborting=true",
+                title,
+                page.url,
+            )
+            return None
+
+        if is_external_company_url(page.url):
+            website = strip_tracking_params(page.url)
+            logger.info(
+                "producthunt_website_extracted source=playwright_redirect website=%s",
+                website,
+            )
+            return WebsiteResolution(website=website, resolved=True, source="playwright_redirect")
+
+        extracted = await _quick_extract_from_loaded_page(page, target)
+        if extracted:
+            return WebsiteResolution(
+                website=extracted,
+                resolved=True,
+                source="playwright_dom",
+            )
+    return None
+
+
+async def _resolve_within_budget(
+    website: str,
+    *,
+    product_page_url: str | None,
+    page: Page | None,
+    timeout_s: float,
+) -> WebsiteResolution:
+    cleaned = strip_tracking_params(website.strip())
+    if not cleaned:
+        return WebsiteResolution(website=website, resolved=False)
+
+    if not is_producthunt_redirect(cleaned) and not is_intermediate_host(cleaned):
+        return WebsiteResolution(website=cleaned, resolved=True, source="direct")
+
+    original = cleaned
+    deadline = asyncio.get_running_loop().time() + timeout_s
+
+    def _remaining() -> float:
+        return max(0.1, deadline - asyncio.get_running_loop().time())
+
+    http_hit = await resolve_redirect_via_http(original, timeout_s=_remaining())
+    if http_hit:
+        logger.info(
+            "producthunt_website_extracted source=http_redirect website=%s",
+            http_hit,
+        )
+        return WebsiteResolution(website=http_hit, resolved=True, source="http_redirect")
+
+    if page is None or _CF_BLOCKED:
+        return WebsiteResolution(website=original, resolved=False)
+
+    playwright_result = await _extract_via_playwright(
+        page,
+        product_page_url=product_page_url,
+        fallback_website=original,
+        timeout_s=_remaining(),
     )
-    return _safe_fallback(fallback_website)
+    if playwright_result is not None:
+        return playwright_result
+
+    return WebsiteResolution(website=original, resolved=False)
 
 
 async def resolve_company_website(
@@ -658,51 +543,39 @@ async def resolve_company_website(
     *,
     product_page_url: str | None = None,
     page: Page | None = None,
-) -> str:
+    timeout_s: float | None = None,
+) -> WebsiteResolution:
+    """Best-effort website resolution with a hard timeout. Never raises for CF/timeouts."""
+    budget = _resolve_timeout_s() if timeout_s is None else float(timeout_s)
     cleaned = website.strip()
     if not cleaned:
-        return website
-
-    if not is_producthunt_redirect(cleaned) and not is_intermediate_host(cleaned):
-        return cleaned
-
-    http_hit = await resolve_redirect_via_http(cleaned)
-    if http_hit:
-        logger.info(
-            "producthunt_website_extracted source=http_redirect website=%s",
-            http_hit,
-        )
-        return http_hit
-
-    if not product_page_url or not str(product_page_url).strip():
-        if page is not None and is_producthunt_redirect(cleaned):
-            followed = await resolve_redirect_url(page, cleaned)
-            return followed or ""
-        logger.warning("producthunt_redirect_missing_product_url website=%s", cleaned)
-        return ""
-
-    fallback = cleaned
-
-    async def _run(active_page: Page) -> str:
-        return await extract_website_from_product_page(
-            str(product_page_url),
-            page=active_page,
-            fallback_website=fallback,
-        )
-
-    if page is not None:
-        return await _run(page)
+        return WebsiteResolution(website=website, resolved=False)
+    original = strip_tracking_params(cleaned)
 
     try:
-        async with producthunt_browser_page() as owned_page:
-            return await _run(owned_page)
+        return await asyncio.wait_for(
+            _resolve_within_budget(
+                original,
+                product_page_url=product_page_url,
+                page=page,
+                timeout_s=budget,
+            ),
+            timeout=budget,
+        )
+    except TimeoutError:
+        logger.warning(
+            "producthunt_website_resolve_timeout website=%s timeout_s=%.1f",
+            original,
+            budget,
+        )
+        return WebsiteResolution(website=original, resolved=False)
     except Exception as exc:
         logger.warning(
-            "producthunt_playwright_unavailable website=%s error=%s",
-            cleaned,
+            "producthunt_website_resolve_failed website=%s error=%s",
+            original,
             exc,
         )
-        return ""
+        return WebsiteResolution(website=original, resolved=False)
 
 
 def raw_items_need_website_resolution(raw_items: list[Any]) -> bool:

@@ -9,7 +9,7 @@ from app.schemas.company import (
     CreateCompanyRequest,
     UpdateCompanyRequest,
 )
-from app.utils.url import normalize_website
+from app.utils.url import canonical_lead_website
 
 SORTABLE_FIELDS = {"name", "website", "source", "created_at"}
 
@@ -41,7 +41,7 @@ class CompanyService:
         website: str,
         exclude_id: str | None = None,
     ) -> bool:
-        normalized = normalize_website(website)
+        normalized = canonical_lead_website(website)
         existing = await self.repository.find_one({"website": normalized})
         if existing is None:
             return False
@@ -50,7 +50,7 @@ class CompanyService:
         return True
 
     async def create_company(self, payload: CreateCompanyRequest) -> CompanyResponse:
-        normalized_website = normalize_website(payload.website)
+        normalized_website = canonical_lead_website(payload.website)
         if await self.check_duplicate_website(normalized_website):
             raise DuplicateRecordError("Company website already exists")
 
@@ -80,7 +80,7 @@ class CompanyService:
             update_data["name"] = payload.name.strip()
 
         if payload.website is not None:
-            normalized_website = normalize_website(payload.website)
+            normalized_website = canonical_lead_website(payload.website)
             if await self.check_duplicate_website(normalized_website, exclude_id=company_id):
                 raise DuplicateRecordError("Company website already exists")
             update_data["website"] = normalized_website

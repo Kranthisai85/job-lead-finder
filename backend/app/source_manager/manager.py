@@ -13,7 +13,7 @@ from app.source_manager.types import (
     CollectorStatistics,
     SourceCollectionReport,
 )
-from app.utils.url import normalize_website
+from app.utils.url import canonical_lead_website, website_identity
 
 
 class StartupSourceManager:
@@ -198,14 +198,14 @@ class StartupSourceManager:
         duplicates_removed = 0
 
         for lead in leads:
-            website = normalize_website(lead.website)
-            if not website:
+            identity = website_identity(lead.website)
+            if not identity:
                 duplicates_removed += 1
                 continue
-            if website in seen:
+            if identity in seen:
                 duplicates_removed += 1
                 continue
-            seen.add(website)
-            unique.append(lead.model_copy(update={"website": website}))
+            seen.add(identity)
+            unique.append(lead.model_copy(update={"website": canonical_lead_website(lead.website)}))
 
         return unique, duplicates_removed

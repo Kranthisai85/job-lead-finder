@@ -12,20 +12,22 @@ from app.collectors.producthunt_parser import (
     parse_product_hunt_response,
 )
 from app.collectors.producthunt_redirect import (
+    WebsiteResolution,
     extract_via_external_links,
     extract_via_json_ld,
     extract_via_meta_tags,
     extract_via_next_data,
     extract_via_visit_button,
-    extract_website_from_product_page,
     is_external_company_url,
     is_intermediate_host,
     is_producthunt_redirect,
+    page_has_cloudflare_challenge,
     resolve_company_website,
     strip_tracking_params,
 )
 from app.repositories.company_repository import CompanyRepository
 from app.services.company_service import CompanyService
+from app.utils.url import canonical_lead_website, website_identity
 
 SAMPLE_PRODUCT = {
     "id": "123",
@@ -81,6 +83,20 @@ def test_parse_launch_date() -> None:
     assert parse_launch_date("invalid-date") is None
 
 
+def test_website_identity_keeps_producthunt_redirects_unique() -> None:
+    assert website_identity("https://www.producthunt.com/r/AAA") == "producthunt.com/r/aaa"
+    assert website_identity("https://www.producthunt.com/r/BBB") == "producthunt.com/r/bbb"
+    assert website_identity("https://www.acme.com/") == "acme.com"
+
+
+def test_canonical_lead_website_preserves_redirect_path() -> None:
+    assert (
+        canonical_lead_website("https://www.producthunt.com/r/ABC?utm_source=x")
+        == "https://www.producthunt.com/r/ABC"
+    )
+    assert canonical_lead_website("https://www.acme.com/") == "acme.com"
+
+
 @pytest.mark.asyncio
 async def test_producthunt_normalize_maps_company_lead(test_db: Any) -> None:
     service = CompanyService(CompanyRepository())
@@ -89,6 +105,7 @@ async def test_producthunt_normalize_maps_company_lead(test_db: Any) -> None:
     assert len(leads) == 1
     assert leads[0].website == "https://www.acme.com/"
     assert leads[0].source == "producthunt"
+    assert leads[0].metadata["website_resolution_failed"] is False
 
 
 @pytest.mark.asyncio
@@ -97,6 +114,102 @@ async def test_producthunt_normalize_skips_missing_website(test_db: Any) -> None
     collector = ProductHuntCollector(service)
     leads = await collector.normalize([{**SAMPLE_PRODUCT, "website": ""}])
     assert leads == []
+
+
+@pytest.mark.asyncio
+async def test_producthunt_normalize_keeps_redirect_when_resolution_fails(
+    test_db: Any,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    service = CompanyService(CompanyRepository())
+    collector = ProductHuntCollector(service)
+    redirect_product = {
+        **SAMPLE_PRODUCT,
+        "website": "https://www.producthunt.com/r/YVXYQHUZQFWTKE",
+    }
+    with (
+        patch(
+            "app.collectors.producthunt.raw_items_need_website_resolution",
+            return_value=True,
+        ),
+        patch("app.collectors.producthunt.producthunt_browser_page") as browser_ctx,
+        patch(
+            "app.collectors.producthunt.resolve_company_website",
+            new=AsyncMock(
+                return_value=WebsiteResolution(
+                    website="https://www.producthunt.com/r/YVXYQHUZQFWTKE",
+                    resolved=False,
+                )
+            ),
+        ),
+        caplog.at_level("INFO"),
+    ):
+        page = MagicMock()
+        browser_ctx.return_value.__aenter__ = AsyncMock(return_value=page)
+        browser_ctx.return_value.__aexit__ = AsyncMock(return_value=None)
+        leads = await collector.normalize([redirect_product])
+
+    assert len(leads) == 1
+    assert leads[0].website == "https://www.producthunt.com/r/YVXYQHUZQFWTKE"
+    assert leads[0].metadata["website_resolution_failed"] is True
+    assert leads[0].metadata["website_redirect"] == "https://www.producthunt.com/r/YVXYQHUZQFWTKE"
+    assert leads[0].metadata["product_hunt_url"] == redirect_product["url"]
+    assert any("websites_unresolved=1" in record.getMessage() for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_producthunt_normalize_continues_after_cloudflare(
+    test_db: Any,
+) -> None:
+    service = CompanyService(CompanyRepository())
+    collector = ProductHuntCollector(service)
+    products = [
+        {
+            **SAMPLE_PRODUCT,
+            "id": "1",
+            "name": "One",
+            "website": "https://www.producthunt.com/r/ONE",
+            "url": "https://www.producthunt.com/products/one",
+        },
+        {
+            **SAMPLE_PRODUCT,
+            "id": "2",
+            "name": "Two",
+            "website": "https://www.producthunt.com/r/TWO",
+            "url": "https://www.producthunt.com/products/two",
+        },
+    ]
+
+    async def resolve_side_effect(
+        website: str,
+        *,
+        product_page_url: str | None = None,
+        page: Any = None,
+        timeout_s: float | None = None,
+    ) -> WebsiteResolution:
+        return WebsiteResolution(website=website, resolved=False)
+
+    with (
+        patch(
+            "app.collectors.producthunt.raw_items_need_website_resolution",
+            return_value=True,
+        ),
+        patch("app.collectors.producthunt.producthunt_browser_page") as browser_ctx,
+        patch(
+            "app.collectors.producthunt.resolve_company_website",
+            new=AsyncMock(side_effect=resolve_side_effect),
+        ),
+        patch("app.collectors.producthunt.is_cloudflare_blocked", side_effect=[False, True]),
+    ):
+        page = MagicMock()
+        browser_ctx.return_value.__aenter__ = AsyncMock(return_value=page)
+        browser_ctx.return_value.__aexit__ = AsyncMock(return_value=None)
+        leads = await collector.normalize(products)
+
+    assert len(leads) == 2
+    assert all(lead.metadata["website_resolution_failed"] for lead in leads)
+    valid = await collector.validate(leads)
+    assert len(valid) == 2
 
 
 @pytest.mark.asyncio
@@ -197,9 +310,16 @@ def _mock_page() -> MagicMock:
     page.remove_listener = MagicMock()
     page.url = "https://www.producthunt.com/products/hehimu-llc"
     page.get_by_role = MagicMock(return_value=_mock_locator(count=0))
-    page.evaluate = AsyncMock(return_value=None)
+    page.evaluate = AsyncMock(return_value=False)
     page.locator = MagicMock(return_value=_mock_locator(count=0))
     return page
+
+
+@pytest.mark.asyncio
+async def test_page_has_cloudflare_challenge_by_title() -> None:
+    page = _mock_page()
+    page.title = AsyncMock(return_value="Just a moment...")
+    assert await page_has_cloudflare_challenge(page) is True
 
 
 @pytest.mark.asyncio
@@ -266,176 +386,54 @@ async def test_extract_via_meta_tags() -> None:
 
 
 @pytest.mark.asyncio
-async def test_extract_website_uses_visit_button_strategy(caplog: pytest.LogCaptureFixture) -> None:
-    page = _mock_page()
+async def test_resolve_company_website_returns_unresolved_on_timeout() -> None:
+    async def slow_resolve(*args: Any, **kwargs: Any) -> WebsiteResolution:
+        import asyncio
 
-    with (
-        patch(
-            "app.collectors.producthunt_redirect.resolve_redirect_via_http",
-            new=AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.collectors.producthunt_redirect._goto_product_page",
-            new=AsyncMock(return_value=True),
-        ),
-        patch(
-            "app.collectors.producthunt_redirect.extract_via_visit_button",
-            new=AsyncMock(return_value="https://www.softam.net/"),
-        ),
-        caplog.at_level("INFO"),
+        await asyncio.sleep(10)
+        return WebsiteResolution(website="https://never.example", resolved=True)
+
+    with patch(
+        "app.collectors.producthunt_redirect._resolve_within_budget",
+        new=slow_resolve,
     ):
-        website = await extract_website_from_product_page(
-            "https://www.producthunt.com/products/hehimu-llc",
-            page=page,
-            fallback_website="https://www.producthunt.com/r/ABC",
+        result = await resolve_company_website(
+            "https://www.producthunt.com/r/ABC",
+            product_page_url="https://www.producthunt.com/products/x",
+            page=None,
+            timeout_s=0.05,
         )
 
-    assert website == "https://www.softam.net/"
-    assert any("source=visit_button" in record.getMessage() for record in caplog.records)
-
-
-@pytest.mark.asyncio
-async def test_extract_website_falls_through_strategies(caplog: pytest.LogCaptureFixture) -> None:
-    page = _mock_page()
-
-    with (
-        patch(
-            "app.collectors.producthunt_redirect.resolve_redirect_via_http",
-            new=AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.collectors.producthunt_redirect._goto_product_page",
-            new=AsyncMock(return_value=True),
-        ),
-        patch(
-            "app.collectors.producthunt_redirect.extract_via_visit_button",
-            new=AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.collectors.producthunt_redirect.extract_via_external_links",
-            new=AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.collectors.producthunt_redirect.extract_via_json_ld",
-            new=AsyncMock(return_value="https://from-jsonld.example"),
-        ),
-        caplog.at_level("INFO"),
-    ):
-        website = await extract_website_from_product_page(
-            "https://www.producthunt.com/products/x",
-            page=page,
-            fallback_website="https://www.producthunt.com/r/ABC",
-        )
-
-    assert website == "https://from-jsonld.example"
-    assert any("source=json_ld" in record.getMessage() for record in caplog.records)
-
-
-@pytest.mark.asyncio
-async def test_extract_website_writes_debug_html_on_failure(tmp_path: Any) -> None:
-    page = _mock_page()
-    debug_path = tmp_path / "producthunt_debug.html"
-
-    with (
-        patch(
-            "app.collectors.producthunt_redirect.resolve_redirect_via_http",
-            new=AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.collectors.producthunt_redirect._goto_product_page",
-            new=AsyncMock(return_value=True),
-        ),
-        patch(
-            "app.collectors.producthunt_redirect.extract_via_visit_button",
-            new=AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.collectors.producthunt_redirect.extract_via_external_links",
-            new=AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.collectors.producthunt_redirect.extract_via_json_ld",
-            new=AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.collectors.producthunt_redirect.extract_via_next_data",
-            new=AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.collectors.producthunt_redirect.extract_via_meta_tags",
-            new=AsyncMock(return_value=None),
-        ),
-        patch("app.collectors.producthunt_redirect.DEBUG_HTML_PATH", debug_path),
-        patch("app.collectors.producthunt_redirect._DEBUG_HTML_WRITTEN", False),
-    ):
-        website = await extract_website_from_product_page(
-            "https://www.producthunt.com/products/x",
-            page=page,
-            fallback_website="https://www.producthunt.com/r/ABC",
-        )
-
-    assert website == ""
-    assert debug_path.exists()
-    assert "debug" in debug_path.read_text(encoding="utf-8")
-
-
-@pytest.mark.asyncio
-async def test_extract_website_skips_when_cloudflare_blocked(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    page = _mock_page()
-    with (
-        patch(
-            "app.collectors.producthunt_redirect.resolve_redirect_via_http",
-            new=AsyncMock(return_value=None),
-        ),
-        patch("app.collectors.producthunt_redirect._CF_BLOCKED", True),
-        caplog.at_level("WARNING"),
-    ):
-        website = await extract_website_from_product_page(
-            "https://www.producthunt.com/products/x",
-            page=page,
-            fallback_website="https://www.producthunt.com/r/ABC",
-        )
-
-    assert website == ""
-    assert any("skipped_cf_blocked" in record.getMessage() for record in caplog.records)
-
-
-@pytest.mark.asyncio
-async def test_extract_website_uses_http_redirect_first(caplog: pytest.LogCaptureFixture) -> None:
-    page = _mock_page()
-    with (
-        patch(
-            "app.collectors.producthunt_redirect.resolve_redirect_via_http",
-            new=AsyncMock(return_value="https://from-http.example/"),
-        ),
-        patch(
-            "app.collectors.producthunt_redirect._goto_product_page",
-            new=AsyncMock(),
-        ) as goto_mock,
-        caplog.at_level("INFO"),
-    ):
-        website = await extract_website_from_product_page(
-            "https://www.producthunt.com/products/x",
-            page=page,
-            fallback_website="https://www.producthunt.com/r/ABC",
-        )
-
-    assert website == "https://from-http.example/"
-    goto_mock.assert_not_called()
-    assert any("source=http_redirect" in record.getMessage() for record in caplog.records)
+    assert result.resolved is False
+    assert result.website == "https://www.producthunt.com/r/ABC"
 
 
 @pytest.mark.asyncio
 async def test_resolve_company_website_skips_non_redirect() -> None:
-    page = MagicMock()
-    final = await resolve_company_website(
+    result = await resolve_company_website(
         "https://www.acme.com/",
         product_page_url="https://www.producthunt.com/products/acme",
-        page=page,
+        page=MagicMock(),
     )
-    assert final == "https://www.acme.com/"
+    assert result.resolved is True
+    assert result.website == "https://www.acme.com/"
+
+
+@pytest.mark.asyncio
+async def test_resolve_company_website_http_success() -> None:
+    with patch(
+        "app.collectors.producthunt_redirect.resolve_redirect_via_http",
+        new=AsyncMock(return_value="https://resolved.example/"),
+    ):
+        result = await resolve_company_website(
+            "https://www.producthunt.com/r/ABC",
+            product_page_url="https://www.producthunt.com/products/x",
+            page=None,
+            timeout_s=5,
+        )
+    assert result.resolved is True
+    assert result.website == "https://resolved.example/"
+    assert result.source == "http_redirect"
 
 
 @pytest.mark.asyncio
@@ -454,7 +452,13 @@ async def test_producthunt_normalize_resolves_redirect_urls(test_db: Any) -> Non
         patch("app.collectors.producthunt.producthunt_browser_page") as browser_ctx,
         patch(
             "app.collectors.producthunt.resolve_company_website",
-            new=AsyncMock(return_value="https://www.softam.net/"),
+            new=AsyncMock(
+                return_value=WebsiteResolution(
+                    website="https://www.softam.net/",
+                    resolved=True,
+                    source="visit_button",
+                )
+            ),
         ) as resolve_mock,
     ):
         page = MagicMock()
@@ -464,4 +468,43 @@ async def test_producthunt_normalize_resolves_redirect_urls(test_db: Any) -> Non
 
     assert len(leads) == 1
     assert leads[0].website == "https://www.softam.net/"
+    assert leads[0].metadata["website_resolution_failed"] is False
     resolve_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_producthunt_browser_session_failure_still_returns_leads(test_db: Any) -> None:
+    service = CompanyService(CompanyRepository())
+    collector = ProductHuntCollector(service)
+    redirect_product = {
+        **SAMPLE_PRODUCT,
+        "website": "https://www.producthunt.com/r/FAILSAFE",
+    }
+
+    class Boom:
+        async def __aenter__(self) -> Any:
+            raise RuntimeError("browser crashed")
+
+        async def __aexit__(self, *args: Any) -> None:
+            return None
+
+    with (
+        patch(
+            "app.collectors.producthunt.raw_items_need_website_resolution",
+            return_value=True,
+        ),
+        patch("app.collectors.producthunt.producthunt_browser_page", return_value=Boom()),
+        patch(
+            "app.collectors.producthunt.resolve_company_website",
+            new=AsyncMock(
+                return_value=WebsiteResolution(
+                    website="https://www.producthunt.com/r/FAILSAFE",
+                    resolved=False,
+                )
+            ),
+        ),
+    ):
+        leads = await collector.normalize([redirect_product])
+
+    assert len(leads) == 1
+    assert leads[0].metadata["website_resolution_failed"] is True

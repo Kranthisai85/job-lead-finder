@@ -8,7 +8,7 @@ from app.exceptions import DuplicateRecordError
 from app.qualification.service import QualificationService
 from app.schemas.company import CreateCompanyRequest
 from app.services.company_service import CompanyService
-from app.utils.url import normalize_website
+from app.utils.url import canonical_lead_website, website_identity
 
 
 class BaseCollector(ABC):
@@ -44,13 +44,13 @@ class BaseCollector(ABC):
             if not name or not website:
                 continue
 
-            normalized_website = normalize_website(website)
-            if not normalized_website or normalized_website in seen_websites:
+            identity = website_identity(website)
+            if not identity or identity in seen_websites:
                 continue
 
-            seen_websites.add(normalized_website)
+            seen_websites.add(identity)
             valid_leads.append(
-                lead.model_copy(update={"website": normalized_website, "name": name})
+                lead.model_copy(update={"website": canonical_lead_website(website), "name": name})
             )
 
         return valid_leads

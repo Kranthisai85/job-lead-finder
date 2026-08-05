@@ -15,7 +15,7 @@ from app.repositories.company_repository import CompanyRepository
 from app.repositories.contact_repository import ContactRepository
 from app.schemas.company import CreateCompanyRequest, UpdateCompanyRequest
 from app.services.company_service import CompanyService
-from app.utils.url import normalize_website
+from app.utils.url import canonical_lead_website
 
 EMAIL_PATTERN_TAG_PREFIX = "email_pattern:"
 TECH_TAG_PREFIX = "tech:"
@@ -59,7 +59,7 @@ class PipelinePersistenceService:
         started = perf_counter()
         result = PersistenceResult()
 
-        website = normalize_website(lead.startup.website)
+        website = canonical_lead_website(lead.startup.website)
         if not website:
             result.skipped = True
             result.skip_reason = "Missing or invalid website"

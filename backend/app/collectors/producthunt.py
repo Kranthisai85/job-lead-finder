@@ -10,9 +10,13 @@ from app.collectors.producthunt_parser import (
     parse_launch_date,
 )
 from app.collectors.producthunt_redirect import (
+    WebsiteResolution,
+    is_cloudflare_blocked,
+    is_producthunt_redirect,
     producthunt_browser_page,
     raw_items_need_website_resolution,
     resolve_company_website,
+    strip_tracking_params,
 )
 from app.collectors.registry import CollectorRegistry
 from app.collectors.types import CompanyLead
@@ -35,19 +39,50 @@ class ProductHuntCollector(BaseCollector):
 
     async def normalize(self, raw_items: list[Any]) -> list[CompanyLead]:
         leads: list[CompanyLead] = []
+        resolved_count = 0
+        unresolved_count = 0
 
-        if raw_items_need_website_resolution(raw_items):
-            async with producthunt_browser_page() as page:
-                for item in raw_items:
-                    lead = await self._normalize_item(item, page=page)
-                    if lead is not None:
-                        leads.append(lead)
-            return leads
-
-        for item in raw_items:
-            lead = await self._normalize_item(item, page=None)
-            if lead is not None:
+        async def _process(items: list[Any], page: Page | None) -> None:
+            nonlocal resolved_count, unresolved_count
+            for item in items:
+                active_page = None if page is None or is_cloudflare_blocked() else page
+                lead, resolved = await self._normalize_item(item, page=active_page)
+                if lead is None:
+                    continue
                 leads.append(lead)
+                if resolved:
+                    resolved_count += 1
+                else:
+                    unresolved_count += 1
+
+        try:
+            if raw_items_need_website_resolution(raw_items):
+                async with producthunt_browser_page() as page:
+                    await _process(raw_items, page)
+            else:
+                await _process(raw_items, None)
+        except Exception as exc:
+            self.logger.warning(
+                "collector=%s website_resolution_session_failed error=%s "
+                "continuing_with_redirect_urls=true",
+                self.name,
+                exc,
+            )
+            seen_ids = {lead.metadata.get("product_hunt_id") for lead in leads}
+            remaining = [
+                item
+                for item in raw_items
+                if isinstance(item, dict) and item.get("id") not in seen_ids
+            ]
+            await _process(remaining, None)
+
+        self.logger.info(
+            "collector=%s websites_resolved=%d websites_unresolved=%d leads=%d",
+            self.name,
+            resolved_count,
+            unresolved_count,
+            len(leads),
+        )
         return leads
 
     async def _normalize_item(
@@ -55,23 +90,25 @@ class ProductHuntCollector(BaseCollector):
         item: Any,
         *,
         page: Page | None,
-    ) -> CompanyLead | None:
+    ) -> tuple[CompanyLead | None, bool]:
         if not isinstance(item, dict):
-            return None
+            return None, False
 
         website = item.get("website")
         if not website or not str(website).strip():
-            return None
+            return None, False
 
-        raw_website = str(website).strip()
+        raw_website = strip_tracking_params(str(website).strip())
         product_page_url = item.get("url")
-        resolved_website = await resolve_company_website(
+
+        resolution: WebsiteResolution = await resolve_company_website(
             raw_website,
             product_page_url=str(product_page_url) if product_page_url else None,
             page=page,
         )
-        if not resolved_website.strip():
-            return None
+
+        final_website = resolution.website.strip() or raw_website
+        resolved = bool(resolution.resolved) and not is_producthunt_redirect(final_website)
 
         topics = extract_topics(item)
         launch_date = item.get("createdAt")
@@ -83,19 +120,22 @@ class ProductHuntCollector(BaseCollector):
             "topics": topics,
             "slug": item.get("slug"),
             "product_hunt_id": item.get("id"),
+            "website_redirect": raw_website,
+            "website_resolution_failed": not resolved,
         }
-        if resolved_website != raw_website:
-            metadata["website_redirect"] = raw_website
+        if resolution.source:
+            metadata["website_resolution_source"] = resolution.source
 
-        return CompanyLead(
+        lead = CompanyLead(
             name=str(item["name"]),
-            website=resolved_website,
+            website=final_website,
             description=(str(item["tagline"]) if item.get("tagline") else None),
             source="producthunt",
             tags=topics,
             discovered_at=parsed_launch_date or datetime.now(timezone.utc),
             metadata=metadata,
         )
+        return lead, resolved
 
     async def save(self, leads: list[CompanyLead]) -> int:
         saved_count = 0
