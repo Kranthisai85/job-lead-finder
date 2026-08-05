@@ -271,6 +271,10 @@ async def test_extract_website_uses_visit_button_strategy(caplog: pytest.LogCapt
 
     with (
         patch(
+            "app.collectors.producthunt_redirect.resolve_redirect_via_http",
+            new=AsyncMock(return_value=None),
+        ),
+        patch(
             "app.collectors.producthunt_redirect._goto_product_page",
             new=AsyncMock(return_value=True),
         ),
@@ -295,6 +299,10 @@ async def test_extract_website_falls_through_strategies(caplog: pytest.LogCaptur
     page = _mock_page()
 
     with (
+        patch(
+            "app.collectors.producthunt_redirect.resolve_redirect_via_http",
+            new=AsyncMock(return_value=None),
+        ),
         patch(
             "app.collectors.producthunt_redirect._goto_product_page",
             new=AsyncMock(return_value=True),
@@ -329,6 +337,10 @@ async def test_extract_website_writes_debug_html_on_failure(tmp_path: Any) -> No
     debug_path = tmp_path / "producthunt_debug.html"
 
     with (
+        patch(
+            "app.collectors.producthunt_redirect.resolve_redirect_via_http",
+            new=AsyncMock(return_value=None),
+        ),
         patch(
             "app.collectors.producthunt_redirect._goto_product_page",
             new=AsyncMock(return_value=True),
@@ -365,6 +377,54 @@ async def test_extract_website_writes_debug_html_on_failure(tmp_path: Any) -> No
     assert website == ""
     assert debug_path.exists()
     assert "debug" in debug_path.read_text(encoding="utf-8")
+
+
+@pytest.mark.asyncio
+async def test_extract_website_skips_when_cloudflare_blocked(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    page = _mock_page()
+    with (
+        patch(
+            "app.collectors.producthunt_redirect.resolve_redirect_via_http",
+            new=AsyncMock(return_value=None),
+        ),
+        patch("app.collectors.producthunt_redirect._CF_BLOCKED", True),
+        caplog.at_level("WARNING"),
+    ):
+        website = await extract_website_from_product_page(
+            "https://www.producthunt.com/products/x",
+            page=page,
+            fallback_website="https://www.producthunt.com/r/ABC",
+        )
+
+    assert website == ""
+    assert any("skipped_cf_blocked" in record.getMessage() for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_extract_website_uses_http_redirect_first(caplog: pytest.LogCaptureFixture) -> None:
+    page = _mock_page()
+    with (
+        patch(
+            "app.collectors.producthunt_redirect.resolve_redirect_via_http",
+            new=AsyncMock(return_value="https://from-http.example/"),
+        ),
+        patch(
+            "app.collectors.producthunt_redirect._goto_product_page",
+            new=AsyncMock(),
+        ) as goto_mock,
+        caplog.at_level("INFO"),
+    ):
+        website = await extract_website_from_product_page(
+            "https://www.producthunt.com/products/x",
+            page=page,
+            fallback_website="https://www.producthunt.com/r/ABC",
+        )
+
+    assert website == "https://from-http.example/"
+    goto_mock.assert_not_called()
+    assert any("source=http_redirect" in record.getMessage() for record in caplog.records)
 
 
 @pytest.mark.asyncio

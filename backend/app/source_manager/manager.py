@@ -88,10 +88,42 @@ class StartupSourceManager:
                     len(leads),
                     duration_ms,
                 )
+            except TimeoutError as exc:
+                duration_ms = round((perf_counter() - stage_started) * 1000, 2)
+                finished_at = datetime.now(timezone.utc)
+                error = (
+                    str(exc).strip() or f"collection timed out after {self.collection_timeout:.0f}s"
+                )
+                statistics.append(
+                    CollectorStatistics(
+                        collector_name=source_name,
+                        companies_collected=0,
+                        duration_ms=duration_ms,
+                        success=False,
+                        error=error,
+                    )
+                )
+                executions.append(
+                    CollectorExecution(
+                        collector_name=source_name,
+                        started_at=execution_started,
+                        finished_at=finished_at,
+                        companies_collected=0,
+                        duration_ms=duration_ms,
+                        success=False,
+                        error=error,
+                    )
+                )
+                self.logger.warning(
+                    "collector=%s status=failed error=%s duration_ms=%.2f",
+                    source_name,
+                    error,
+                    duration_ms,
+                )
             except Exception as exc:
                 duration_ms = round((perf_counter() - stage_started) * 1000, 2)
                 finished_at = datetime.now(timezone.utc)
-                error = str(exc)
+                error = str(exc).strip() or type(exc).__name__
                 statistics.append(
                     CollectorStatistics(
                         collector_name=source_name,

@@ -9,6 +9,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
+    xvfb \
+    procps \
     libnss3 \
     libnspr4 \
     libdbus-1-3 \
@@ -34,7 +36,10 @@ COPY backend/requirements.txt /app/requirements.txt
 RUN pip install -r /app/requirements.txt && playwright install chromium
 
 COPY backend /app
+COPY backend/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 8001
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD uvicorn app.main:app --host 0.0.0.0 --port ${APP_PORT:-8001}

@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     product_hunt_timeout: float = Field(default=30.0, ge=1.0)
     product_hunt_max_companies: int = Field(default=50, ge=1, le=200)
     product_hunt_api_token: str | None = None
+    # None = auto (headed inside Docker). Datacenter IPs often need headed+Xvfb for Cloudflare.
+    product_hunt_playwright_headed: bool | None = None
+    product_hunt_challenge_wait_ms: int = Field(default=60_000, ge=5_000, le=180_000)
 
     qualification_passing_score: int = Field(default=50, ge=0, le=100)
     qualification_enabled_rules: str = (
@@ -49,7 +52,7 @@ class Settings(BaseSettings):
     mobile_detection_minimum_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
 
     enabled_sources: str = "producthunt"
-    collection_timeout: float = Field(default=120.0, ge=1.0)
+    collection_timeout: float = Field(default=300.0, ge=1.0)
     max_collectors: int = Field(default=10, ge=1, le=50)
 
     scheduler_enabled: bool = True
