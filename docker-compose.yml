@@ -42,5 +42,15 @@ services:
     ports:
       - "8080:80"
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: lead-finder-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
 volumes:
   mongodb_data:
+  ollama_data:
