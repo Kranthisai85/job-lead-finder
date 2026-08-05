@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     collection_timeout: float = Field(default=120.0, ge=1.0)
     max_collectors: int = Field(default=10, ge=1, le=50)
 
+    scheduler_enabled: bool = True
+    collect_cron: str = "0 * * * *"
+    validation_cron: str = "30 * * * *"
+    cleanup_cron: str = "0 2 * * *"
+    max_job_runtime: int = Field(default=600, ge=1)
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
