@@ -14,8 +14,10 @@ from app.collectors.producthunt_parser import (
 from app.collectors.producthunt_redirect import (
     extract_website_from_product_page,
     is_external_company_url,
+    is_intermediate_host,
     is_producthunt_redirect,
     resolve_company_website,
+    _follow_redirect_with_playwright,
 )
 from app.repositories.company_repository import CompanyRepository
 from app.services.company_service import CompanyService
@@ -176,6 +178,16 @@ def test_is_external_company_url() -> None:
     assert not is_external_company_url("https://www.producthunt.com/r/abc")
     assert not is_external_company_url("https://twitter.com/acme")
     assert not is_external_company_url("/relative")
+    assert not is_external_company_url("https://cloudflare.com/")
+    assert not is_external_company_url("https://www.cloudflare.com/")
+    assert not is_external_company_url("https://challenges.cloudflare.com/cdn-cgi/challenge")
+
+
+def test_is_intermediate_host() -> None:
+    assert is_intermediate_host("https://cloudflare.com/")
+    assert is_intermediate_host("https://challenges.cloudflare.com/turnstile")
+    assert is_intermediate_host("https://example.com/cdn-cgi/challenge-platform/")
+    assert not is_intermediate_host("https://hehimu.com/")
 
 
 def _mock_locator(*, href: str | None = None, count: int = 1) -> MagicMock:
@@ -186,18 +198,32 @@ def _mock_locator(*, href: str | None = None, count: int = 1) -> MagicMock:
     return locator
 
 
-@pytest.mark.asyncio
-async def test_extract_website_from_product_page_success() -> None:
+def _mock_product_page(*, visit_href: str | None = None) -> MagicMock:
     page = MagicMock()
     page.goto = AsyncMock()
+    page.evaluate = AsyncMock(return_value=None)
+    page.wait_for_timeout = AsyncMock()
+    page.on = MagicMock()
+    page.remove_listener = MagicMock()
     page.url = "https://www.producthunt.com/posts/acme"
-    page.locator = MagicMock(
-        side_effect=lambda selector: (
-            _mock_locator(href="https://www.acme.com/")
-            if selector == 'a[data-test="post-product-link"]'
-            else _mock_locator(count=0)
-        )
-    )
+
+    def locator_side_effect(selector: str) -> MagicMock:
+        if visit_href and selector == 'a[data-test="post-product-link"]':
+            return _mock_locator(href=visit_href)
+        if selector == "a[href]":
+            anchors = MagicMock()
+            anchors.count = AsyncMock(return_value=0)
+            return anchors
+        return _mock_locator(count=0)
+
+    page.locator = MagicMock(side_effect=locator_side_effect)
+    page.get_by_role = MagicMock(return_value=_mock_locator(count=0))
+    return page
+
+
+@pytest.mark.asyncio
+async def test_extract_website_from_product_page_success() -> None:
+    page = _mock_product_page(visit_href="https://www.acme.com/")
 
     website = await extract_website_from_product_page(
         "https://www.producthunt.com/posts/acme",
@@ -210,22 +236,25 @@ async def test_extract_website_from_product_page_success() -> None:
 
 
 @pytest.mark.asyncio
+async def test_extract_website_from_next_data() -> None:
+    page = _mock_product_page()
+    page.evaluate = AsyncMock(
+        return_value={"props": {"pageProps": {"website": "https://hehimu.com"}}}
+    )
+
+    website = await extract_website_from_product_page(
+        "https://www.producthunt.com/posts/hehimu",
+        page=page,
+        fallback_website="https://www.producthunt.com/r/ABC",
+    )
+
+    assert website == "https://hehimu.com"
+
+
+@pytest.mark.asyncio
 async def test_extract_website_follows_visit_redirect_with_playwright() -> None:
-    page = MagicMock()
-    page.goto = AsyncMock()
+    page = _mock_product_page(visit_href="https://www.producthunt.com/r/YVXYQHUZQFWTKE")
     page.url = "https://resolved.acme.com/"
-
-    def locator_side_effect(selector: str) -> MagicMock:
-        if selector == 'a[data-test="post-product-link"]':
-            return _mock_locator(href="https://www.producthunt.com/r/YVXYQHUZQFWTKE")
-        if selector == "a[href]":
-            anchors = MagicMock()
-            anchors.count = AsyncMock(return_value=0)
-            return anchors
-        return _mock_locator(count=0)
-
-    page.locator = MagicMock(side_effect=locator_side_effect)
-    page.get_by_role = MagicMock(return_value=_mock_locator(count=0))
 
     website = await extract_website_from_product_page(
         "https://www.producthunt.com/posts/acme",
@@ -235,6 +264,66 @@ async def test_extract_website_follows_visit_redirect_with_playwright() -> None:
 
     assert website == "https://resolved.acme.com/"
     assert page.goto.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_follow_redirect_skips_cloudflare_intermediate() -> None:
+    page = MagicMock()
+    page.goto = AsyncMock()
+    page.wait_for_timeout = AsyncMock()
+    page.on = MagicMock()
+    page.remove_listener = MagicMock()
+
+    # First polls show Cloudflare, then the real company domain.
+    page.url = "https://challenges.cloudflare.com/cdn-cgi/challenge"
+    url_values = [
+        "https://challenges.cloudflare.com/cdn-cgi/challenge",
+        "https://challenges.cloudflare.com/cdn-cgi/challenge",
+        "https://hehimu.com/",
+        "https://hehimu.com/",
+        "https://hehimu.com/",
+    ]
+    url_iter = iter(url_values)
+
+    def url_getter() -> str:
+        try:
+            return next(url_iter)
+        except StopIteration:
+            return "https://hehimu.com/"
+
+    type(page).url = property(lambda self: url_getter())
+
+    # Avoid very long polling in unit tests.
+    with patch("app.collectors.producthunt_redirect.settings") as settings_mock:
+        settings_mock.product_hunt_timeout = 2.0
+        with patch("app.collectors.producthunt_redirect.REDIRECT_SETTLE_POLL_MS", 1):
+            with patch("app.collectors.producthunt_redirect.REDIRECT_STABLE_POLLS", 2):
+                result = await _follow_redirect_with_playwright(
+                    page,
+                    "https://www.producthunt.com/r/YVXYQHUZQFWTKE",
+                )
+
+    assert result == "https://hehimu.com/"
+
+
+@pytest.mark.asyncio
+async def test_follow_redirect_rejects_cloudflare_final_url() -> None:
+    page = MagicMock()
+    page.goto = AsyncMock()
+    page.wait_for_timeout = AsyncMock()
+    page.on = MagicMock()
+    page.remove_listener = MagicMock()
+    page.url = "https://www.cloudflare.com/"
+
+    with patch("app.collectors.producthunt_redirect.settings") as settings_mock:
+        settings_mock.product_hunt_timeout = 0.1
+        with patch("app.collectors.producthunt_redirect.REDIRECT_SETTLE_POLL_MS", 50):
+            result = await _follow_redirect_with_playwright(
+                page,
+                "https://www.producthunt.com/r/YVXYQHUZQFWTKE",
+            )
+
+    assert result is None
 
 
 @pytest.mark.asyncio
@@ -256,11 +345,11 @@ async def test_resolve_company_website_skips_non_redirect() -> None:
 async def test_resolve_company_website_fallback_without_product_url() -> None:
     original = "https://www.producthunt.com/r/YVXYQHUZQFWTKE"
     final = await resolve_company_website(original, product_page_url=None, page=MagicMock())
-    assert final == original
+    assert final == ""
 
 
 @pytest.mark.asyncio
-async def test_extract_website_failure_returns_fallback() -> None:
+async def test_extract_website_failure_rejects_redirect_fallback() -> None:
     page = MagicMock()
     page.goto = AsyncMock(side_effect=RuntimeError("navigation failed"))
     fallback = "https://www.producthunt.com/r/YVXYQHUZQFWTKE"
@@ -271,7 +360,37 @@ async def test_extract_website_failure_returns_fallback() -> None:
         fallback_website=fallback,
     )
 
-    assert website == fallback
+    assert website == ""
+
+
+@pytest.mark.asyncio
+async def test_normalize_skips_unresolved_redirect(test_db: Any) -> None:
+    service = CompanyService(CompanyRepository())
+    collector = ProductHuntCollector(service)
+    redirect_product = {
+        **SAMPLE_PRODUCT,
+        "website": "https://www.producthunt.com/r/YVXYQHUZQFWTKE",
+    }
+
+    with (
+        patch(
+            "app.collectors.producthunt.raw_items_need_website_resolution",
+            return_value=True,
+        ),
+        patch(
+            "app.collectors.producthunt.producthunt_browser_page",
+        ) as browser_ctx,
+        patch(
+            "app.collectors.producthunt.resolve_company_website",
+            new=AsyncMock(return_value=""),
+        ),
+    ):
+        page = MagicMock()
+        browser_ctx.return_value.__aenter__ = AsyncMock(return_value=page)
+        browser_ctx.return_value.__aexit__ = AsyncMock(return_value=None)
+        leads = await collector.normalize([redirect_product])
+
+    assert leads == []
 
 
 @pytest.mark.asyncio
