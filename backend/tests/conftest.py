@@ -4,7 +4,7 @@ import pytest
 from beanie import init_beanie
 from mongomock_motor import AsyncMongoMockClient
 
-from app.models import DOCUMENT_MODELS
+from app.db.document_models import DOCUMENT_MODELS
 
 
 @pytest.fixture()

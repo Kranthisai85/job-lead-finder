@@ -1,4 +1,4 @@
-from typing import Any, Final
+from typing import Any
 
 from beanie import init_beanie  # pyright: ignore[reportMissingImports]
 from beanie.exceptions import CollectionWasNotInitialized
@@ -6,14 +6,13 @@ from motor.motor_asyncio import AsyncIOMotorClient  # pyright: ignore[reportMiss
 
 from app.core.config import settings
 from app.core.logger import get_logger
-from app.models import DOCUMENT_MODELS
+from app.db.document_models import DOCUMENT_MODELS, REGISTERED_MODEL_NAMES
 from app.models.company import Company
 
 logger = get_logger(__name__)
 
 client: AsyncIOMotorClient[dict[str, Any]] | None = None
 _initialized: bool = False
-REGISTERED_MODEL_NAMES: Final[list[str]] = ["Company", "Contact", "EmailDraft", "ScraperJob"]
 
 
 def is_beanie_initialized() -> bool:
