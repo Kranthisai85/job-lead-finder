@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any
 
-import httpx
+from playwright.async_api import Page
 
 from app.collectors.base import BaseCollector
 from app.collectors.producthunt_parser import (
@@ -9,10 +9,13 @@ from app.collectors.producthunt_parser import (
     fetch_latest_product_hunt_posts,
     parse_launch_date,
 )
-from app.collectors.producthunt_redirect import resolve_producthunt_redirect
+from app.collectors.producthunt_redirect import (
+    producthunt_browser_page,
+    raw_items_need_website_resolution,
+    resolve_company_website,
+)
 from app.collectors.registry import CollectorRegistry
 from app.collectors.types import CompanyLead
-from app.core.config import settings
 from app.exceptions import DuplicateRecordError
 from app.schemas.company import CreateCompanyRequest
 
@@ -33,48 +36,66 @@ class ProductHuntCollector(BaseCollector):
     async def normalize(self, raw_items: list[Any]) -> list[CompanyLead]:
         leads: list[CompanyLead] = []
 
-        async with httpx.AsyncClient(
-            follow_redirects=True,
-            timeout=settings.product_hunt_timeout,
-        ) as client:
-            for item in raw_items:
-                if not isinstance(item, dict):
-                    continue
+        if raw_items_need_website_resolution(raw_items):
+            async with producthunt_browser_page() as page:
+                for item in raw_items:
+                    lead = await self._normalize_item(item, page=page)
+                    if lead is not None:
+                        leads.append(lead)
+            return leads
 
-                website = item.get("website")
-                if not website or not str(website).strip():
-                    continue
-
-                resolved_website = await resolve_producthunt_redirect(
-                    str(website),
-                    client=client,
-                )
-                if not resolved_website.strip():
-                    continue
-
-                topics = extract_topics(item)
-                launch_date = item.get("createdAt")
-                parsed_launch_date = parse_launch_date(str(launch_date) if launch_date else None)
-
-                leads.append(
-                    CompanyLead(
-                        name=str(item["name"]),
-                        website=resolved_website,
-                        description=(str(item["tagline"]) if item.get("tagline") else None),
-                        source="producthunt",
-                        tags=topics,
-                        discovered_at=parsed_launch_date or datetime.now(timezone.utc),
-                        metadata={
-                            "product_hunt_url": item.get("url"),
-                            "launch_date": launch_date,
-                            "topics": topics,
-                            "slug": item.get("slug"),
-                            "product_hunt_id": item.get("id"),
-                        },
-                    )
-                )
-
+        for item in raw_items:
+            lead = await self._normalize_item(item, page=None)
+            if lead is not None:
+                leads.append(lead)
         return leads
+
+    async def _normalize_item(
+        self,
+        item: Any,
+        *,
+        page: Page | None,
+    ) -> CompanyLead | None:
+        if not isinstance(item, dict):
+            return None
+
+        website = item.get("website")
+        if not website or not str(website).strip():
+            return None
+
+        raw_website = str(website).strip()
+        product_page_url = item.get("url")
+        resolved_website = await resolve_company_website(
+            raw_website,
+            product_page_url=str(product_page_url) if product_page_url else None,
+            page=page,
+        )
+        if not resolved_website.strip():
+            return None
+
+        topics = extract_topics(item)
+        launch_date = item.get("createdAt")
+        parsed_launch_date = parse_launch_date(str(launch_date) if launch_date else None)
+
+        metadata: dict[str, Any] = {
+            "product_hunt_url": product_page_url,
+            "launch_date": launch_date,
+            "topics": topics,
+            "slug": item.get("slug"),
+            "product_hunt_id": item.get("id"),
+        }
+        if resolved_website != raw_website:
+            metadata["website_redirect"] = raw_website
+
+        return CompanyLead(
+            name=str(item["name"]),
+            website=resolved_website,
+            description=(str(item["tagline"]) if item.get("tagline") else None),
+            source="producthunt",
+            tags=topics,
+            discovered_at=parsed_launch_date or datetime.now(timezone.utc),
+            metadata=metadata,
+        )
 
     async def save(self, leads: list[CompanyLead]) -> int:
         saved_count = 0
