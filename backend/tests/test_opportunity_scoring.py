@@ -52,9 +52,11 @@ def score(**kwargs: object):
 
 def test_weights_live_only_in_weights_module() -> None:
     assert DEFAULT_WEIGHTS.flutter_hiring == 40
-    assert DEFAULT_WEIGHTS.no_mobile_app == 25
+    assert DEFAULT_WEIGHTS.no_mobile_app == 12
+    assert DEFAULT_WEIGHTS.product_hunt == 5
     assert DEFAULT_WEIGHTS.flutter_already_detected < 0
     assert DEFAULT_WEIGHTS.existing_native_apps < 0
+    assert DEFAULT_WEIGHTS.non_company_website < 0
 
 
 def test_no_mobile_app_and_flutter_hiring_is_hot() -> None:
@@ -171,6 +173,7 @@ def test_consumer_low_priority_without_hiring() -> None:
 def test_founder_email_recommends_send_founder_email_on_high() -> None:
     # Tune weights so score lands in High band with founder email.
     config = OpportunityScoringConfig(
+        max_contact_points=50,
         weights=OpportunityWeights(
             no_mobile_app=30,
             founder_email=25,
@@ -199,6 +202,7 @@ def test_founder_email_recommends_send_founder_email_on_high() -> None:
             react_native_detected=0,
             flutter_already_detected=0,
             existing_native_apps=0,
+            non_company_website=0,
         )
     )
     report = OpportunityScoringService(config=config).score(
@@ -224,11 +228,57 @@ def test_founder_email_recommends_send_founder_email_on_high() -> None:
 
 def test_priority_bands() -> None:
     service = OpportunityScoringService()
-    assert service._priority_for(90) == "Critical"
-    assert service._priority_for(75) == "High"
-    assert service._priority_for(55) == "Medium"
-    assert service._priority_for(35) == "Low"
-    assert service._priority_for(10) == "Very Low"
+    no_hiring = type("Ctx", (), {"hiring_report": None})()
+    with_hiring = type(
+        "Ctx",
+        (),
+        {
+            "hiring_report": HiringDetectionReport(
+                url="https://acme.example",
+                jobs_found=1,
+                flutter_jobs=1,
+                mobile_jobs=0,
+            )
+        },
+    )()
+    assert service._priority_for(90, with_hiring) == "Critical"
+    assert service._priority_for(90, no_hiring) == "High"
+    assert service._priority_for(75, no_hiring) == "High"
+    assert service._priority_for(55, no_hiring) == "Medium"
+    assert service._priority_for(35, no_hiring) == "Low"
+    assert service._priority_for(10, no_hiring) == "Very Low"
+
+
+def test_soft_stack_without_hiring_is_not_critical() -> None:
+    report = score(
+        url="https://acme.example",
+        source="producthunt",
+        mobile_report=MobileAppDetectionResult(has_mobile_app=False, confidence=0.2),
+        contacts=ContactDiscoveryReport(
+            url="https://acme.example",
+            decision_makers=[
+                CompanyDecisionMaker(
+                    name="Jane Founder",
+                    role="Founder",
+                    email="jane@acme.example",
+                    confidence=0.9,
+                    contact_score=100,
+                )
+            ],
+            decision_makers_found=1,
+            contact_count=1,
+        ),
+        launch_date=datetime.now(timezone.utc) - timedelta(days=5),
+    )
+    assert report.priority != "Critical"
+    assert report.overall_score < 100
+
+
+def test_non_company_website_is_penalized() -> None:
+    report = score(url="https://www.producthunt.com/r/ABC")
+    assert report.score_breakdown.get("non_company_website", 0) < 0
+    assert report.overall_score <= 40
+    assert report.priority in {"Low", "Very Low", "Medium"}
 
 
 def test_recommended_actions_mapping() -> None:
@@ -374,6 +424,7 @@ def test_ignore_when_very_low() -> None:
             react_native_detected=0,
             flutter_already_detected=0,
             existing_native_apps=0,
+            non_company_website=0,
         )
     )
     report = OpportunityScoringService(config=config).score(url="https://empty.example")

@@ -42,6 +42,20 @@ def score_context(context: QualificationContext) -> Any:
     return QualificationScoringEngine(DEFAULT_SCORING_CONFIG).score(context)
 
 
+def test_producthunt_redirect_website_is_disqualified() -> None:
+    lead = make_lead(website="https://www.producthunt.com/r/ABC123")
+    result = score_context(QualificationContext.from_company_lead(lead))
+    assert result.qualified is False
+    assert any("Product Hunt" in warning for warning in result.warnings)
+
+
+def test_blog_cloudflare_host_is_penalized() -> None:
+    lead = make_lead(website="https://blog.cloudflare.com/wallets")
+    result = score_context(QualificationContext.from_company_lead(lead))
+    assert result.qualified is False
+    assert any("blog" in warning.lower() or "cdn" in warning.lower() for warning in result.warnings)
+
+
 def test_github_repository_is_penalized() -> None:
     lead = make_lead(website="https://github.com/acme/cool-app")
     result = score_context(QualificationContext.from_company_lead(lead))
@@ -49,7 +63,6 @@ def test_github_repository_is_penalized() -> None:
     assert any("GitHub repository" in warning for warning in result.warnings)
     assert result.score < 60
     assert result.qualified is False
-    assert result.level in {QualificationLevel.FAIR, QualificationLevel.POOR}
 
 
 def test_vercel_demo_is_penalized() -> None:

@@ -14,6 +14,7 @@ from app.contact_discovery.types import (
     ContactCandidate,
     ContactDiscoveryReport,
 )
+from app.contact_discovery.validators import is_fake_contact_name
 from app.core.logger import get_logger
 from app.crawler.types import WebsiteProfile
 from app.founder_enrichment.models import FounderEnrichmentReport, FounderProfile
@@ -138,6 +139,8 @@ class FounderEnrichmentService:
         for maker in makers:
             if not _is_founder_role(maker.role):
                 continue
+            if maker.name and is_fake_contact_name(maker.name):
+                continue
             key = _identity_key(
                 name=maker.name,
                 email=maker.email,
@@ -169,6 +172,8 @@ class FounderEnrichmentService:
                 if not _is_founder_role(role):
                     continue
                 name = contact.display_name or contact.full_name
+                if name and is_fake_contact_name(name):
+                    continue
                 key = _identity_key(name=name, email=contact.email, linkedin=contact.linkedin)
                 if key in seen:
                     # Merge richer fields into existing.
@@ -198,24 +203,25 @@ class FounderEnrichmentService:
             role = best.role or best.company_role
             if _is_founder_role(role):
                 name = best.display_name or best.full_name
-                key = _identity_key(name=name, email=best.email, linkedin=best.linkedin)
-                if key not in seen:
-                    selected.append(
-                        {
-                            "full_name": name,
-                            "first_name": best.first_name,
-                            "last_name": best.last_name,
-                            "role": role,
-                            "email": best.email,
-                            "linkedin": best.linkedin,
-                            "github": best.github,
-                            "twitter": best.twitter,
-                            "confidence": best.confidence,
-                            "contact_score": best.contact_score,
-                            "source_page": best.source_page,
-                            "discovery_source": best.discovery_source,
-                        }
-                    )
+                if not (name and is_fake_contact_name(name)):
+                    key = _identity_key(name=name, email=best.email, linkedin=best.linkedin)
+                    if key not in seen:
+                        selected.append(
+                            {
+                                "full_name": name,
+                                "first_name": best.first_name,
+                                "last_name": best.last_name,
+                                "role": role,
+                                "email": best.email,
+                                "linkedin": best.linkedin,
+                                "github": best.github,
+                                "twitter": best.twitter,
+                                "confidence": best.confidence,
+                                "contact_score": best.contact_score,
+                                "source_page": best.source_page,
+                                "discovery_source": best.discovery_source,
+                            }
+                        )
 
         return selected
 

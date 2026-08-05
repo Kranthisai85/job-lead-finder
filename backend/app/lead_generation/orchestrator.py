@@ -7,6 +7,7 @@ from typing import TypeVar
 from app.ai.service import AIEmailService
 from app.ai.types import GeneratedEmail
 from app.collectors.types import CompanyLead
+from app.contact_discovery.validators import is_valid_email
 from app.core.logger import get_logger
 from app.email_queue.service import EmailQueueService
 from app.email_queue.types import EmailQueueItem
@@ -349,7 +350,7 @@ class LeadGenerationOrchestrator:
     def _best_recipient(lead: CompleteLead) -> dict[str, str] | None:
         if lead.lead_intelligence and lead.lead_intelligence.best_contact:
             contact = lead.lead_intelligence.best_contact
-            if contact.email:
+            if contact.email and is_valid_email(contact.email):
                 return {
                     "name": contact.full_name or contact.first_name or "there",
                     "email": contact.email,
@@ -357,13 +358,15 @@ class LeadGenerationOrchestrator:
         if lead.contacts and lead.contacts.contacts:
             ranked = sorted(lead.contacts.contacts, key=lambda item: item.confidence, reverse=True)
             for contact in ranked:
-                if contact.email:
+                if contact.email and is_valid_email(contact.email):
                     return {
                         "name": contact.full_name or contact.first_name or "there",
                         "email": contact.email,
                     }
         if lead.contacts and lead.contacts.emails:
-            return {"name": "there", "email": lead.contacts.emails[0]}
+            for email in lead.contacts.emails:
+                if is_valid_email(email):
+                    return {"name": "there", "email": email}
         return None
 
     @staticmethod

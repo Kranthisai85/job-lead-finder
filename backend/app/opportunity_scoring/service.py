@@ -23,10 +23,13 @@ from app.opportunity_scoring.weights import (
     OpportunityWeights,
 )
 from app.technology.types import TechnologyReport
+from app.utils.url import is_usable_company_website
 
 
 SignalResult = tuple[int, str, bool]  # points, message, is_warning
 SignalFn = Callable[..., SignalResult]
+
+_CONTACT_SIGNAL_KEYS = ("founder_contact", "decision_maker_found", "founder_email")
 
 
 class OpportunityScoringService:
@@ -63,6 +66,7 @@ class OpportunityScoringService:
             ("react_native_detected", self._signal_react_native),
             ("flutter_already_detected", self._signal_flutter_already),
             ("existing_native_apps", self._signal_existing_native),
+            ("non_company_website", self._signal_non_company_website),
         ]
 
     def score(
@@ -118,9 +122,17 @@ class OpportunityScoringService:
                 else:
                     reasons.append(message)
 
+        # Cap overlapping contact signals so founder contact+email cannot alone dominate.
+        contact_total = sum(breakdown.get(key, 0) for key in _CONTACT_SIGNAL_KEYS)
+        max_contact = self.config.max_contact_points
+        if contact_total > max_contact:
+            excess = contact_total - max_contact
+            total -= excess
+            warnings.append(f"Contact signal cap applied (-{excess})")
+
         clamped = max(self.config.min_score, min(self.config.max_score, total))
-        priority = self._priority_for(clamped)
-        level = self._level_for(clamped)
+        priority = self._priority_for(clamped, ctx)
+        level = self._level_for(clamped, priority)
         has_founder_email = ctx.has_founder_email
         action = self._recommended_action(priority, has_founder_email=has_founder_email)
         confidence = self._confidence(ctx, evaluated=evaluated, fired=len(breakdown))
@@ -153,10 +165,15 @@ class OpportunityScoringService:
         )
         return report
 
-    def _priority_for(self, score: int) -> str:
+    def _priority_for(self, score: int, ctx: "_OpportunityContext") -> str:
         t = self.config.thresholds
         if score >= t.critical:
-            return "Critical"
+            # Critical requires a strong mobile/Flutter hiring signal — not soft stacks alone.
+            if self._has_critical_hiring_signal(ctx):
+                return "Critical"
+            if score >= t.high:
+                return "High"
+            return "Medium"
         if score >= t.high:
             return "High"
         if score >= t.medium:
@@ -165,10 +182,10 @@ class OpportunityScoringService:
             return "Low"
         return "Very Low"
 
-    def _level_for(self, score: int) -> str:
-        t = self.config.thresholds
-        if score >= t.critical:
+    def _level_for(self, score: int, priority: str) -> str:
+        if priority == "Critical":
             return "Exceptional"
+        t = self.config.thresholds
         if score >= t.high:
             return "Strong"
         if score >= t.medium:
@@ -176,6 +193,12 @@ class OpportunityScoringService:
         if score >= t.low:
             return "Weak"
         return "Negligible"
+
+    @staticmethod
+    def _has_critical_hiring_signal(ctx: "_OpportunityContext") -> bool:
+        if ctx.hiring_report is None:
+            return False
+        return ctx.hiring_report.flutter_jobs > 0 or ctx.hiring_report.mobile_jobs > 0
 
     @staticmethod
     def _recommended_action(priority: str, *, has_founder_email: bool) -> str:
@@ -215,13 +238,10 @@ class OpportunityScoringService:
     def _signal_no_mobile_app(
         self, ctx: "_OpportunityContext", weights: OpportunityWeights
     ) -> SignalResult:
+        # Only award when mobile detection explicitly ran and found no app.
         if ctx.mobile_report is not None and not ctx.mobile_report.has_mobile_app:
             points = weights.no_mobile_app
             return points, f"+{points} No mobile app", False
-        if ctx.mobile_report is None and not ctx.has_store_links:
-            # Soft positive when no evidence of an app yet.
-            points = weights.no_mobile_app
-            return points, f"+{points} No mobile app detected", False
         return 0, "", False
 
     def _signal_flutter_hiring(
@@ -295,6 +315,9 @@ class OpportunityScoringService:
     def _signal_decision_maker(
         self, ctx: "_OpportunityContext", weights: OpportunityWeights
     ) -> SignalResult:
+        # Avoid double-counting when a founder contact already fired.
+        if ctx.has_founder_contact:
+            return 0, "", False
         if ctx.contacts and ctx.contacts.decision_makers_found > 0:
             points = weights.decision_maker_found
             return points, f"+{points} Decision maker found", False
@@ -453,6 +476,14 @@ class OpportunityScoringService:
             # Skip if only Flutter (already penalized) and no store — still penalize native stores.
             points = weights.existing_native_apps
             return points, f"{points} Existing native apps", True
+        return 0, "", False
+
+    def _signal_non_company_website(
+        self, ctx: "_OpportunityContext", weights: OpportunityWeights
+    ) -> SignalResult:
+        if ctx.url and not is_usable_company_website(ctx.url):
+            points = weights.non_company_website
+            return points, f"{points} Non-company website", True
         return 0, "", False
 
 

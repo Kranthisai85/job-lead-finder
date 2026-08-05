@@ -54,12 +54,17 @@ def test_rejects_fake_emails() -> None:
     assert is_valid_email("noreply@acme.example") is False
     assert is_valid_email("admin@example.com") is False
     assert is_valid_email("user@localhost") is False
+    assert is_valid_email("governance@runtime.we") is False
+    assert is_valid_email("live@research.example.cloudflare.pay") is False
     assert is_valid_email("founder@acme.example") is True
 
 
 def test_rejects_fake_contact_names() -> None:
     assert is_fake_contact_name("Privacy Policy") is True
     assert is_fake_contact_name("Pricing") is True
+    assert is_fake_contact_name("Custom For") is True
+    assert is_fake_contact_name("Account Wallets") is True
+    assert is_fake_contact_name("Cloud Connector") is True
     assert is_fake_contact_name("Jane Founder") is False
 
 

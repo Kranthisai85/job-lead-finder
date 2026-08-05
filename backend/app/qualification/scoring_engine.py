@@ -15,7 +15,13 @@ from app.qualification.weights import (
     PLATFORM_DOMAINS,
     QualificationScoringConfig,
 )
-from app.utils.url import is_producthunt_redirect
+from app.utils.url import (
+    is_blog_host,
+    is_intermediate_or_cdn_host,
+    is_producthunt_host,
+    is_producthunt_redirect,
+    is_usable_company_website,
+)
 
 
 SignalFn = Callable[[QualificationContext, QualificationScoringConfig], tuple[int, str, bool]]
@@ -84,6 +90,8 @@ class QualificationScoringEngine:
             ("only_netlify_app", self._signal_netlify_only),
             ("no_contact_information", self._signal_no_contact),
             ("mobile_app_exists", self._signal_mobile_app_exists),
+            ("producthunt_or_platform_website", self._signal_producthunt_or_platform),
+            ("intermediate_or_blog_host", self._signal_intermediate_or_blog),
         ]
 
     def score(self, context: QualificationContext) -> QualificationResult:
@@ -108,6 +116,8 @@ class QualificationScoringEngine:
         clamped = max(self.config.min_score, min(self.config.max_score, total))
         level = self._level_for(clamped)
         qualified = clamped >= self.config.thresholds.good
+        if context.website and not is_usable_company_website(context.website):
+            qualified = False
 
         return QualificationResult(
             qualified=qualified,
@@ -130,16 +140,20 @@ class QualificationScoringEngine:
     def _signal_website_exists(
         self, context: QualificationContext, config: QualificationScoringConfig
     ) -> tuple[int, str, bool]:
-        if context.website.strip():
-            points = config.weights.website_exists
-            return points, f"+{points} Website exists", False
-        return 0, "Website is missing", True
+        if not context.website.strip():
+            return 0, "Website is missing", True
+        if not is_usable_company_website(context.website):
+            return 0, "", False
+        points = config.weights.website_exists
+        return points, f"+{points} Website exists", False
 
     def _signal_custom_domain(
         self, context: QualificationContext, config: QualificationScoringConfig
     ) -> tuple[int, str, bool]:
         host = context.website_host
         if not host:
+            return 0, "", False
+        if not is_usable_company_website(context.website):
             return 0, "", False
         if is_producthunt_redirect(context.website):
             return 0, "", False
@@ -151,6 +165,8 @@ class QualificationScoringEngine:
     def _signal_https_enabled(
         self, context: QualificationContext, config: QualificationScoringConfig
     ) -> tuple[int, str, bool]:
+        if not is_usable_company_website(context.website):
+            return 0, "", False
         if context.url_scheme == "https":
             points = config.weights.https_enabled
             return points, f"+{points} HTTPS enabled", False
@@ -207,9 +223,11 @@ class QualificationScoringEngine:
     def _signal_no_mobile_app(
         self, context: QualificationContext, config: QualificationScoringConfig
     ) -> tuple[int, str, bool]:
-        # Only award when enrichment has explicitly evaluated mobile (False).
-        # Sparse collector context leaves has_mobile_app=False by default — still a
-        # reasonable default "no app detected yet".
+        # Only award after crawl enrichment (final_url set) confirms no app.
+        if not context.final_url:
+            return 0, "", False
+        if not is_usable_company_website(context.website):
+            return 0, "", False
         if not context.has_mobile_app:
             points = config.weights.no_mobile_app
             return points, f"+{points} No mobile app detected", False
@@ -452,6 +470,30 @@ class QualificationScoringEngine:
         if context.has_mobile_app:
             points = config.weights.mobile_app_exists
             return points, f"{points} Mobile app already exists", True
+        return 0, "", False
+
+    def _signal_producthunt_or_platform(
+        self, context: QualificationContext, config: QualificationScoringConfig
+    ) -> tuple[int, str, bool]:
+        if is_producthunt_redirect(context.website) or is_producthunt_host(context.website):
+            points = config.weights.producthunt_or_platform_website
+            return points, f"{points} Product Hunt / platform website", True
+        host = context.website_host
+        if host and any(_host_is_platform(host, platform) for platform in PLATFORM_DOMAINS):
+            # Already covered by github/vercel specific signals for some hosts; still penalize PH/CF.
+            if _host_is_platform(host, "producthunt.com") or _host_is_platform(
+                host, "cloudflare.com"
+            ):
+                points = config.weights.producthunt_or_platform_website
+                return points, f"{points} Product Hunt / platform website", True
+        return 0, "", False
+
+    def _signal_intermediate_or_blog(
+        self, context: QualificationContext, config: QualificationScoringConfig
+    ) -> tuple[int, str, bool]:
+        if is_intermediate_or_cdn_host(context.website) or is_blog_host(context.website):
+            points = config.weights.intermediate_or_blog_host
+            return points, f"{points} Intermediate CDN or blog host", True
         return 0, "", False
 
 

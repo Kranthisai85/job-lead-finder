@@ -3,6 +3,7 @@ import pytest
 from app.utils.url import (
     canonical_lead_website,
     is_producthunt_redirect,
+    is_usable_company_website,
     normalize_website,
     website_identity,
 )
@@ -32,3 +33,12 @@ def test_website_identity_and_canonical() -> None:
         "https://www.producthunt.com/r/AbC"
     )
     assert canonical_lead_website("https://www.acme.com/about") == "acme.com"
+
+
+def test_is_usable_company_website() -> None:
+    assert is_usable_company_website("https://acme.com") is True
+    assert is_usable_company_website("https://www.producthunt.com/r/abc") is False
+    assert is_usable_company_website("https://www.producthunt.com/products/x") is False
+    assert is_usable_company_website("https://blog.cloudflare.com/wallets") is False
+    assert is_usable_company_website("https://challenges.cloudflare.com/") is False
+    assert is_usable_company_website("https://blog.acme.com") is False

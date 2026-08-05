@@ -11,16 +11,16 @@ class QualificationWeights:
 
     # Positive
     website_exists: int = 10
-    custom_domain: int = 15
-    https_enabled: int = 15
-    recently_launched: int = 20
-    description_long: int = 20
+    custom_domain: int = 12
+    https_enabled: int = 10
+    recently_launched: int = 10
+    description_long: int = 10
     contact_page_exists: int = 10
-    valid_business_email: int = 20
-    no_mobile_app: int = 25
-    react_or_nextjs: int = 15
-    flutter_mentioned: int = 30
-    careers_page: int = 25
+    valid_business_email: int = 15
+    no_mobile_app: int = 15
+    react_or_nextjs: int = 12
+    flutter_mentioned: int = 25
+    careers_page: int = 20
     hiring_flutter: int = 40
     hiring_mobile: int = 35
     hiring_frontend: int = 20
@@ -43,6 +43,8 @@ class QualificationWeights:
     only_netlify_app: int = -20
     no_contact_information: int = -15
     mobile_app_exists: int = -25
+    producthunt_or_platform_website: int = -50
+    intermediate_or_blog_host: int = -40
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,5 +105,6 @@ PLATFORM_DOMAINS: frozenset[str] = frozenset(
         "web.app",
         "firebaseapp.com",
         "producthunt.com",
+        "cloudflare.com",
     }
 )

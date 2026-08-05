@@ -30,7 +30,7 @@ from app.pipeline.types import (
 from app.qualification.service import QualificationService
 from app.schemas.company import CompanyResponse
 from app.technology.service import TechnologyDetectionService
-from app.utils.url import normalize_website
+from app.utils.url import is_usable_company_website, normalize_website
 
 logger = get_logger(__name__)
 
@@ -122,6 +122,31 @@ class LeadProcessor:
 
         website = startup.website.strip()
         domain = normalize_website(website) or website
+        usable_website = is_usable_company_website(website)
+
+        if not usable_website:
+            metadata.warnings.append(
+                "Skipped enrichment: website is a Product Hunt redirect, platform host, "
+                "CDN intermediate, or blog host"
+            )
+            company_lead = CompanyLead(
+                name=startup.name,
+                website=website,
+                description=startup.description,
+                source=startup.source,
+                tags=[],
+            )
+            lead.qualification_report = self._run_sync_stage(
+                lead,
+                stage="qualification",
+                func=lambda: self.qualification_service.qualify(company_lead),
+            )
+            finished_at = datetime.now(timezone.utc)
+            metadata.finished_at = finished_at
+            metadata.total_duration_ms = round((perf_counter() - started) * 1000, 2)
+            metadata.success = len(metadata.errors) == 0
+            lead.processing = metadata
+            return lead
 
         profile = await self._run_async_stage(
             lead,

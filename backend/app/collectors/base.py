@@ -8,7 +8,7 @@ from app.exceptions import DuplicateRecordError
 from app.qualification.service import QualificationService
 from app.schemas.company import CreateCompanyRequest
 from app.services.company_service import CompanyService
-from app.utils.url import canonical_lead_website, website_identity
+from app.utils.url import canonical_lead_website, is_usable_company_website, website_identity
 
 
 class BaseCollector(ABC):
@@ -42,6 +42,13 @@ class BaseCollector(ABC):
             name = lead.name.strip() if lead.name else ""
             website = lead.website.strip() if lead.website else ""
             if not name or not website:
+                continue
+            if not is_usable_company_website(website):
+                self.logger.info(
+                    "collector=%s action=skip_non_company_website website=%s",
+                    self.name,
+                    website,
+                )
                 continue
 
             identity = website_identity(website)
@@ -94,7 +101,7 @@ class BaseCollector(ABC):
         valid_count = len(valid_leads)
 
         # Qualification scoring runs after enrichment in the pipeline.
-        # Collectors persist all validated seeds so unresolved PH redirects are not dropped.
+        # Only persist leads with usable company websites (no unresolved PH / CDN hosts).
         saved_count = await self.save(valid_leads)
 
         duration_ms = (perf_counter() - started_at) * 1000

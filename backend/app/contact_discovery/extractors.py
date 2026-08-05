@@ -126,6 +126,21 @@ def _detect_role_near_text(text: str) -> str | None:
     return None
 
 
+def _role_near_name(text: str, name: str, *, window: int = 80) -> str | None:
+    """Require role keyword near the name, not just somewhere in a large HTML block."""
+    idx = text.find(name)
+    if idx < 0:
+        # Case-insensitive fallback for mismatched casing.
+        lowered = text.lower()
+        name_l = name.lower()
+        idx = lowered.find(name_l)
+        if idx < 0:
+            return None
+    start = max(0, idx - window)
+    end = min(len(text), idx + len(name) + window)
+    return _detect_role_near_text(text[start:end])
+
+
 def _pick_best_email(emails: list[str], full_name: str | None) -> str | None:
     if not emails:
         return None
@@ -218,9 +233,6 @@ def extract_people_from_html(
             text_blocks.append(text)
 
     for text in text_blocks:
-        role = _detect_role_near_text(text)
-        if not role:
-            continue
         names = [name for name in NAME_PATTERN.findall(text) if not is_fake_contact_name(name)]
         emails = extract_emails_from_text(text)
         linkedin_matches = PERSON_LINKEDIN_PATTERN.findall(text)
@@ -230,9 +242,24 @@ def extract_people_from_html(
         if not names and not emails and not linkedin_matches:
             continue
 
+        # Prefer a name whose nearby window contains a role keyword.
+        chosen_name: str | None = None
+        role: str | None = None
+        for name in names:
+            nearby_role = _role_near_name(text, name)
+            if nearby_role:
+                chosen_name = name
+                role = nearby_role
+                break
+        if not role:
+            # Email/LinkedIn-only blocks may still mention a role in the block.
+            role = _detect_role_near_text(text) if (emails or linkedin_matches) else None
+        if not role and not emails and not linkedin_matches:
+            continue
+
         candidate = _build_candidate(
-            full_name=names[0] if names else None,
-            email=_pick_best_email(emails, names[0] if names else None),
+            full_name=chosen_name or (names[0] if names else None),
+            email=_pick_best_email(emails, chosen_name or (names[0] if names else None)),
             role=role,
             linkedin=linkedin_matches[0] if linkedin_matches else None,
             github=github_matches[0] if github_matches else None,

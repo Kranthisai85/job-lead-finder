@@ -6,8 +6,12 @@ from app.contact_discovery.ranking import (
     DEFAULT_CONTACT_RANKING,
     DECISION_MAKER_ROLE_NAMES,
     FAKE_CONTACT_LABELS,
+    FAKE_EMAIL_DOMAIN_LABELS,
     FAKE_EMAIL_DOMAINS,
+    NAME_CONNECTIVE_TOKENS,
+    NON_PERSON_NAME_TOKENS,
     REJECTED_EMAIL_LOCAL_PARTS,
+    SUSPICIOUS_EMAIL_TLDS,
     ContactRankingConfig,
 )
 
@@ -116,6 +120,18 @@ def is_fake_email(email: str) -> bool:
         return True
     if "localhost" in domain:
         return True
+
+    labels = [part for part in domain.split(".") if part]
+    if len(labels) < 2:
+        return True
+    tld = labels[-1]
+    if tld in SUSPICIOUS_EMAIL_TLDS:
+        return True
+    # Placeholder / CDN labels in any non-TLD segment (keeps acme.example fixtures valid).
+    if any(label in FAKE_EMAIL_DOMAIN_LABELS for label in labels[:-1]):
+        return True
+    if any("cloudflare" in label for label in labels):
+        return True
     return False
 
 
@@ -173,6 +189,14 @@ def is_fake_contact_name(name: str | None) -> bool:
     ):
         return True
     if all(token in single_token_rejects for token in tokens):
+        return True
+    # Reject product/UI phrases ("Custom For", "Account Wallets", "Cloud Connector").
+    if any(token in NAME_CONNECTIVE_TOKENS for token in tokens):
+        return True
+    non_person_hits = sum(1 for token in tokens if token in NON_PERSON_NAME_TOKENS)
+    if non_person_hits == len(tokens):
+        return True
+    if len(tokens) >= 2 and non_person_hits >= (len(tokens) + 1) // 2:
         return True
     return False
 

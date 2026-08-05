@@ -12,6 +12,7 @@ from app.collectors.producthunt_parser import (
 from app.collectors.producthunt_redirect import (
     WebsiteResolution,
     is_cloudflare_blocked,
+    is_external_company_url,
     is_producthunt_redirect,
     producthunt_browser_page,
     raw_items_need_website_resolution,
@@ -22,6 +23,7 @@ from app.collectors.registry import CollectorRegistry
 from app.collectors.types import CompanyLead
 from app.exceptions import DuplicateRecordError
 from app.schemas.company import CreateCompanyRequest
+from app.utils.url import is_usable_company_website
 
 
 @CollectorRegistry.register("producthunt")
@@ -48,6 +50,8 @@ class ProductHuntCollector(BaseCollector):
                 active_page = None if page is None or is_cloudflare_blocked() else page
                 lead, resolved = await self._normalize_item(item, page=active_page)
                 if lead is None:
+                    if isinstance(item, dict) and str(item.get("website") or "").strip():
+                        unresolved_count += 1
                     continue
                 leads.append(lead)
                 if resolved:
@@ -64,7 +68,7 @@ class ProductHuntCollector(BaseCollector):
         except Exception as exc:
             self.logger.warning(
                 "collector=%s website_resolution_session_failed error=%s "
-                "continuing_with_redirect_urls=true",
+                "skipping_unresolved_redirects=true",
                 self.name,
                 exc,
             )
@@ -109,6 +113,11 @@ class ProductHuntCollector(BaseCollector):
 
         final_website = resolution.website.strip() or raw_website
         resolved = bool(resolution.resolved) and not is_producthunt_redirect(final_website)
+        if resolved and not is_external_company_url(final_website):
+            resolved = False
+        if not resolved or not is_usable_company_website(final_website):
+            # Do not persist unresolved PH redirects or CDN/blog intermediates as companies.
+            return None, False
 
         topics = extract_topics(item)
         launch_date = item.get("createdAt")
@@ -121,7 +130,7 @@ class ProductHuntCollector(BaseCollector):
             "slug": item.get("slug"),
             "product_hunt_id": item.get("id"),
             "website_redirect": raw_website,
-            "website_resolution_failed": not resolved,
+            "website_resolution_failed": False,
         }
         if resolution.source:
             metadata["website_resolution_source"] = resolution.source
@@ -135,7 +144,7 @@ class ProductHuntCollector(BaseCollector):
             discovered_at=parsed_launch_date or datetime.now(timezone.utc),
             metadata=metadata,
         )
-        return lead, resolved
+        return lead, True
 
     async def save(self, leads: list[CompanyLead]) -> int:
         saved_count = 0

@@ -117,7 +117,7 @@ async def test_producthunt_normalize_skips_missing_website(test_db: Any) -> None
 
 
 @pytest.mark.asyncio
-async def test_producthunt_normalize_keeps_redirect_when_resolution_fails(
+async def test_producthunt_normalize_drops_redirect_when_resolution_fails(
     test_db: Any,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -149,11 +149,7 @@ async def test_producthunt_normalize_keeps_redirect_when_resolution_fails(
         browser_ctx.return_value.__aexit__ = AsyncMock(return_value=None)
         leads = await collector.normalize([redirect_product])
 
-    assert len(leads) == 1
-    assert leads[0].website == "https://www.producthunt.com/r/YVXYQHUZQFWTKE"
-    assert leads[0].metadata["website_resolution_failed"] is True
-    assert leads[0].metadata["website_redirect"] == "https://www.producthunt.com/r/YVXYQHUZQFWTKE"
-    assert leads[0].metadata["product_hunt_url"] == redirect_product["url"]
+    assert leads == []
     assert any("websites_unresolved=1" in record.getMessage() for record in caplog.records)
 
 
@@ -206,10 +202,9 @@ async def test_producthunt_normalize_continues_after_cloudflare(
         browser_ctx.return_value.__aexit__ = AsyncMock(return_value=None)
         leads = await collector.normalize(products)
 
-    assert len(leads) == 2
-    assert all(lead.metadata["website_resolution_failed"] for lead in leads)
+    assert len(leads) == 0
     valid = await collector.validate(leads)
-    assert len(valid) == 2
+    assert valid == []
 
 
 @pytest.mark.asyncio
@@ -473,7 +468,7 @@ async def test_producthunt_normalize_resolves_redirect_urls(test_db: Any) -> Non
 
 
 @pytest.mark.asyncio
-async def test_producthunt_browser_session_failure_still_returns_leads(test_db: Any) -> None:
+async def test_producthunt_browser_session_failure_drops_unresolved(test_db: Any) -> None:
     service = CompanyService(CompanyRepository())
     collector = ProductHuntCollector(service)
     redirect_product = {
@@ -506,5 +501,4 @@ async def test_producthunt_browser_session_failure_still_returns_leads(test_db: 
     ):
         leads = await collector.normalize([redirect_product])
 
-    assert len(leads) == 1
-    assert leads[0].metadata["website_resolution_failed"] is True
+    assert leads == []
