@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from app.ai.client import OllamaClient, format_ollama_error
+from app.ai.client import OllamaClient, OllamaModelNotFoundError, format_ollama_error
 from app.ai.generator import AIEmailGenerator
 from app.ai.prompts import (
     build_email_prompt,
@@ -253,6 +253,7 @@ async def test_retry_on_transient_failure(caplog: pytest.LogCaptureFixture) -> N
         base_url="http://172.17.0.1:11434",
         timeout=60.0,
     )
+    client._model_verified = True
     with caplog.at_level("WARNING"):
         result = await client.generate("test prompt")
 
@@ -286,6 +287,7 @@ async def test_server_error_logs_status_and_body(caplog: pytest.LogCaptureFixtur
     )
 
     client = OllamaClient(client=http_client, max_retries=0, timeout=12.0)
+    client._model_verified = True
     with caplog.at_level("WARNING"), pytest.raises(httpx.HTTPStatusError):
         await client.generate("test prompt")
 
@@ -359,3 +361,127 @@ async def test_invalid_json_response_uses_fallback() -> None:
 
     email = await AIEmailGenerator(client=client).generate_email(make_lead())
     assert email.generation_source == "fallback"
+
+
+def _tags_response(models: list[str]) -> MagicMock:
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.json.return_value = {"models": [{"name": name} for name in models]}
+    return response
+
+
+@pytest.mark.asyncio
+async def test_missing_ollama_model_falls_back(caplog: pytest.LogCaptureFixture) -> None:
+    generate_response = MagicMock()
+    generate_response.raise_for_status = MagicMock()
+    generate_response.json.return_value = {
+        "model": "llama3.2:3b",
+        "response": json.dumps(
+            {"subject": "Hi", "opening": "Hello", "body": "Body", "cta": "Call?"}
+        ),
+        "done": True,
+    }
+
+    http_client = AsyncMock()
+    http_client.get = AsyncMock(return_value=_tags_response(["llama3.2:3b"]))
+    http_client.post = AsyncMock(return_value=generate_response)
+
+    client = OllamaClient(
+        client=http_client,
+        model="qwen2.5:1.5b",
+        max_retries=0,
+        base_url="http://ollama.local",
+    )
+    with caplog.at_level("WARNING"):
+        result = await client.generate("prompt")
+
+    assert client.model == "llama3.2:3b"
+    assert "Hi" in result.response
+    assert http_client.post.await_count == 1
+    assert any("ollama_model_missing" in record.getMessage() for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_missing_ollama_model_with_no_installed_models_raises() -> None:
+    http_client = AsyncMock()
+    http_client.get = AsyncMock(return_value=_tags_response([]))
+    http_client.post = AsyncMock()
+
+    client = OllamaClient(client=http_client, model="qwen2.5:1.5b", max_retries=2)
+    with pytest.raises(OllamaModelNotFoundError, match="no installed models"):
+        await client.generate("prompt")
+
+    http_client.post.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_http_404_model_not_found_does_not_retry(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    request = httpx.Request("POST", "http://ollama.local/api/generate")
+    not_found = httpx.Response(
+        404,
+        request=request,
+        text='{"error":"model \'qwen2.5:1.5b\' not found"}',
+    )
+    http_error = httpx.HTTPStatusError("Not Found", request=request, response=not_found)
+
+    http_client = AsyncMock()
+    http_client.get = AsyncMock(return_value=_tags_response(["qwen2.5:1.5b"]))
+    http_client.post = AsyncMock(side_effect=http_error)
+
+    client = OllamaClient(
+        client=http_client,
+        model="qwen2.5:1.5b",
+        max_retries=2,
+        base_url="http://ollama.local",
+    )
+    with caplog.at_level("WARNING"), pytest.raises(OllamaModelNotFoundError, match="HTTP 404"):
+        await client.generate("prompt")
+
+    assert http_client.post.await_count == 1
+    assert any("ollama_model_not_found" in record.getMessage() for record in caplog.records)
+    assert not any("ollama_transient_failure" in record.getMessage() for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_http_404_uses_fallback_model_once() -> None:
+    request = httpx.Request("POST", "http://ollama.local/api/generate")
+    not_found = httpx.Response(
+        404,
+        request=request,
+        text='{"error":"model \'missing:1b\' not found"}',
+    )
+    success = MagicMock()
+    success.raise_for_status = MagicMock()
+    success.json.return_value = {
+        "model": "llama3.2:3b",
+        "response": "ok",
+        "done": True,
+    }
+
+    http_client = AsyncMock()
+    http_client.get = AsyncMock(
+        side_effect=[
+            _tags_response(["missing:1b"]),
+            _tags_response(["llama3.2:3b"]),
+        ]
+    )
+    http_client.post = AsyncMock(
+        side_effect=[
+            httpx.HTTPStatusError("Not Found", request=request, response=not_found),
+            success,
+        ]
+    )
+
+    client = OllamaClient(
+        client=http_client,
+        model="missing:1b",
+        max_retries=2,
+        base_url="http://ollama.local",
+    )
+    result = await client.generate("prompt")
+
+    assert result.response == "ok"
+    assert client.model == "llama3.2:3b"
+    assert http_client.post.await_count == 2

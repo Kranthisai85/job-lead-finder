@@ -1,4 +1,5 @@
 from app.core.logger import get_logger
+from app.db.mongo import ensure_mongo_ready
 from app.lead_generation.orchestrator import LeadGenerationOrchestrator
 from app.lead_generation.types import LeadGenerationReport
 
@@ -19,6 +20,8 @@ class LeadGenerationService:
         enqueue_emails: bool = True,
     ) -> LeadGenerationReport:
         self.logger.info("service=LeadGenerationService action=run")
+        if persist or enqueue_emails:
+            await ensure_mongo_ready()
         report = await self.orchestrator.run(
             limit=limit,
             persist=persist,
