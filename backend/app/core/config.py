@@ -58,6 +58,12 @@ class Settings(BaseSettings):
     cleanup_cron: str = "0 2 * * *"
     max_job_runtime: int = Field(default=600, ge=1)
 
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen2.5:7b"
+    ollama_timeout: float = Field(default=60.0, ge=1.0)
+    ollama_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    ollama_max_tokens: int = Field(default=512, ge=1, le=4096)
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
