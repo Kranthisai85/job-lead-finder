@@ -1,26 +1,35 @@
+from __future__ import annotations
+
+from typing import Any
+
 from app.company_profile.builder import CompanyProfileBuilder
 from app.company_profile.service import CompanyProfileService
 from app.crawler.types import SocialLinks, WebsiteProfile
 
 
-def make_profile(html: str = "", **kwargs: object) -> WebsiteProfile:
-    metadata = {
+def make_profile(
+    html: str = "",
+    *,
+    title: str = "Linear",
+    description: str | None = None,
+    open_graph: dict[str, str] | None = None,
+    twitter: dict[str, str] | None = None,
+    social_links: SocialLinks | None = None,
+    pricing_pages: list[str] | None = None,
+) -> WebsiteProfile:
+    metadata: dict[str, Any] = {
         "html": html,
-        "open_graph": kwargs.pop("open_graph", {}),
-        "twitter": kwargs.pop("twitter", {}),
+        "open_graph": open_graph or {},
+        "twitter": twitter or {},
         "headers": {},
     }
     return WebsiteProfile(
         url="https://linear.app",
         final_url="https://linear.app/",
-        title=str(kwargs.get("title", "Linear")),
-        description=kwargs.get("description"),  # type: ignore[arg-type]
-        social_links=(
-            kwargs.get("social_links", SocialLinks())  # type: ignore[arg-type]
-            if "social_links" in kwargs
-            else SocialLinks()
-        ),
-        pricing_pages=list(kwargs.get("pricing_pages", [])),  # type: ignore[arg-type]
+        title=title,
+        description=description,
+        social_links=social_links or SocialLinks(),
+        pricing_pages=pricing_pages or [],
         metadata=metadata,
         valid=True,
         status_code=200,
