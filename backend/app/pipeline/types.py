@@ -5,11 +5,15 @@ from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 
 from app.company_profile.types import CompanyProfile
+from app.company_intelligence.models import CompanyIntelligenceReport
 from app.contact_discovery.types import ContactDiscoveryReport
 from app.crawler.types import WebsiteProfile
 from app.email_patterns.types import EmailPatternReport
+from app.founder_enrichment.models import FounderEnrichmentReport
+from app.hiring_detection.types import HiringDetectionReport
 from app.intelligence.types import LeadIntelligence
 from app.mobile_detection.types import MobileAppDetectionResult
+from app.opportunity_scoring.models import OpportunityScoreReport
 from app.qualification.types import QualificationResult
 from app.technology.types import TechnologyReport
 
@@ -55,8 +59,12 @@ class CompleteLead(BaseModel):
     company_profile: CompanyProfile | None = None
     technology_report: TechnologyReport | None = None
     mobile_report: MobileAppDetectionResult | None = None
-    qualification_report: QualificationResult | None = None
     contacts: ContactDiscoveryReport | None = None
+    founder_enrichment: FounderEnrichmentReport | None = None
+    hiring_report: HiringDetectionReport | None = None
+    company_intelligence: CompanyIntelligenceReport | None = None
+    opportunity_score: OpportunityScoreReport | None = None
+    qualification_report: QualificationResult | None = None
     email_pattern_report: EmailPatternReport | None = None
     lead_intelligence: LeadIntelligence | None = None
     processing: ProcessingMetadata = Field(default_factory=ProcessingMetadata)

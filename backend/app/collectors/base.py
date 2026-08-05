@@ -93,9 +93,9 @@ class BaseCollector(ABC):
         valid_leads = await self.validate(normalized_leads)
         valid_count = len(valid_leads)
 
-        qualified_leads = self.qualification_service.filter_qualified(valid_leads)
-
-        saved_count = await self.save(qualified_leads)
+        # Qualification scoring runs after enrichment in the pipeline.
+        # Collectors persist all validated seeds so unresolved PH redirects are not dropped.
+        saved_count = await self.save(valid_leads)
 
         duration_ms = (perf_counter() - started_at) * 1000
         self.logger.info(

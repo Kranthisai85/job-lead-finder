@@ -45,9 +45,16 @@ class LeadIntelligence(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def best_contact(self) -> ContactCandidate | None:
-        if self.contact_discovery is None or not self.contact_discovery.contacts:
+        if self.contact_discovery is None:
             return None
-        return max(self.contact_discovery.contacts, key=lambda contact: contact.confidence)
+        if self.contact_discovery.best_contact is not None:
+            return self.contact_discovery.best_contact
+        if not self.contact_discovery.contacts:
+            return None
+        return max(
+            self.contact_discovery.contacts,
+            key=lambda contact: (contact.contact_score, contact.confidence),
+        )
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -90,17 +97,8 @@ class LeadIntelligence(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def is_good_lead(self) -> bool:
-        website_exists = bool(self.company.website and self.company.website.strip())
-        qualification_passed = bool(self.qualification and self.qualification.qualified)
-        has_contact = bool(
-            self.contact_discovery
-            and (
-                self.contact_discovery.contact_count > 0
-                or self.contact_discovery.emails
-                or self.contact_discovery.contacts
-            )
-        )
-        return not self.has_mobile_app and qualification_passed and website_exists and has_contact
+        """True when the scoring engine marks the lead Good or Excellent."""
+        return bool(self.qualification and self.qualification.qualified)
 
     def to_dict(self) -> dict[str, Any]:
         return self.model_dump()

@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     # Hard cap per product website resolution (Cloudflare must not block the pipeline).
     product_hunt_website_resolve_timeout: float = Field(default=5.0, ge=0.5, le=30.0)
 
-    qualification_passing_score: int = Field(default=50, ge=0, le=100)
+    qualification_passing_score: int = Field(default=60, ge=0, le=100)
     qualification_enabled_rules: str = (
         "website_exists,company_name_exists,description_exists,not_localhost,"
         "not_github_io,not_vercel_app,not_netlify_app,not_notion_site,"

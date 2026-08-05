@@ -9,6 +9,7 @@ from pathlib import Path
 from time import perf_counter
 
 from app.collectors.types import CompanyLead
+from app.company_intelligence.service import CompanyIntelligenceService
 from app.contact_discovery.service import ContactDiscoveryService
 from app.core.logger import get_logger, setup_logging
 from app.crawler.base import HttpWebsiteCrawler
@@ -16,8 +17,11 @@ from app.crawler.service import WebsiteCrawlerService
 from app.crawler.types import WebsiteProfile
 from app.db.mongo import close_mongo_connection, connect_to_mongo
 from app.email_patterns.service import EmailPatternService
+from app.founder_enrichment.service import FounderEnrichmentService
+from app.hiring_detection.service import HiringDetectionService
 from app.intelligence.service import LeadIntelligenceService
 from app.mobile_detection.service import MobileAppDetectionService
+from app.opportunity_scoring.service import OpportunityScoringService
 from app.pipeline.persistence import PipelinePersistenceService
 from app.pipeline.types import CompleteLead
 from app.pipeline.types import ProcessingMetadata
@@ -89,6 +93,10 @@ class ValidationPipeline:
         crawler_service: WebsiteCrawlerService | None = None,
         technology_service: TechnologyDetectionService | None = None,
         mobile_service: MobileAppDetectionService | None = None,
+        hiring_service: HiringDetectionService | None = None,
+        company_intelligence_service: CompanyIntelligenceService | None = None,
+        opportunity_scoring_service: OpportunityScoringService | None = None,
+        founder_enrichment_service: FounderEnrichmentService | None = None,
         qualification_service: QualificationService | None = None,
         contact_service: ContactDiscoveryService | None = None,
         intelligence_service: LeadIntelligenceService | None = None,
@@ -100,8 +108,16 @@ class ValidationPipeline:
         )
         self.technology_service = technology_service or TechnologyDetectionService()
         self.mobile_service = mobile_service or MobileAppDetectionService()
-        self.qualification_service = qualification_service or QualificationService()
         self.contact_service = contact_service or ContactDiscoveryService()
+        self.founder_enrichment_service = founder_enrichment_service or FounderEnrichmentService()
+        self.hiring_service = hiring_service or HiringDetectionService()
+        self.company_intelligence_service = (
+            company_intelligence_service or CompanyIntelligenceService()
+        )
+        self.opportunity_scoring_service = (
+            opportunity_scoring_service or OpportunityScoringService()
+        )
+        self.qualification_service = qualification_service or QualificationService()
         self.intelligence_service = intelligence_service or LeadIntelligenceService()
         self.email_pattern_service = email_pattern_service or EmailPatternService()
         self.persistence_service = persistence_service
@@ -125,6 +141,11 @@ class ValidationPipeline:
             website_profile=result.website_profile,
             technology_report=result.technology_report,
             mobile_report=result.mobile_detection,
+            contacts=result.contact_discovery,
+            founder_enrichment=result.founder_enrichment,
+            hiring_report=result.hiring_report,
+            company_intelligence=result.company_intelligence,
+            opportunity_score=result.opportunity_score,
             qualification_report=result.qualification,
             contacts=result.contact_discovery,
             email_pattern_report=result.email_patterns,
@@ -178,13 +199,6 @@ class ValidationPipeline:
             source=startup.source,
             tags=[],
         )
-        try:
-            qualification = self.qualification_service.qualify(lead)
-            result.qualification = qualification
-            result.qualification_pass = qualification.qualified
-            result.qualification_score = qualification.score
-        except Exception as exc:
-            errors.append(f"Qualification failed: {exc}")
 
         try:
             contact_discovery = self.contact_service.discover(profile)
@@ -193,6 +207,67 @@ class ValidationPipeline:
             result.decision_makers = count_decision_makers(contact_discovery)
         except Exception as exc:
             errors.append(f"Contact discovery failed: {exc}")
+
+        try:
+            founder_enrichment = self.founder_enrichment_service.enrich(
+                contacts=result.contact_discovery,
+                website_profile=profile,
+                company_intelligence=result.company_intelligence,
+                decision_makers=(
+                    result.contact_discovery.decision_makers if result.contact_discovery else None
+                ),
+            )
+            result.founder_enrichment = founder_enrichment
+        except Exception as exc:
+            errors.append(f"Founder enrichment failed: {exc}")
+
+        try:
+            hiring_report = self.hiring_service.detect(profile)
+            result.hiring_report = hiring_report
+        except Exception as exc:
+            errors.append(f"Hiring detection failed: {exc}")
+
+        try:
+            company_intelligence = self.company_intelligence_service.analyze(
+                profile,
+                technology_report=result.technology_report,
+                hiring_report=result.hiring_report,
+            )
+            result.company_intelligence = company_intelligence
+        except Exception as exc:
+            errors.append(f"Company intelligence failed: {exc}")
+
+        try:
+            opportunity_score = self.opportunity_scoring_service.score(
+                url=profile.final_url or profile.url,
+                source=startup.source,
+                website_profile=profile,
+                technology_report=result.technology_report,
+                mobile_report=result.mobile_detection,
+                contacts=result.contact_discovery,
+                hiring_report=result.hiring_report,
+                company_intelligence=result.company_intelligence,
+                description=startup.description or profile.description,
+            )
+            result.opportunity_score = opportunity_score
+        except Exception as exc:
+            errors.append(f"Opportunity scoring failed: {exc}")
+
+        try:
+            qualification = self.qualification_service.qualify_enriched(
+                lead,
+                website_profile=profile,
+                technology_report=result.technology_report,
+                mobile_report=result.mobile_detection,
+                contacts=result.contact_discovery,
+                hiring_report=result.hiring_report,
+                company_intelligence=result.company_intelligence,
+            )
+            result.qualification = qualification
+            result.qualification_pass = qualification.qualified
+            result.qualification_score = qualification.score
+        except Exception as exc:
+            errors.append(f"Qualification failed: {exc}")
 
         company = CompanyResponse(
             id=str(uuid.uuid4()),

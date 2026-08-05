@@ -69,6 +69,7 @@ def make_good_lead_inputs() -> dict[str, object]:
         "qualification": QualificationResult(
             qualified=True,
             score=65,
+            level="Good",
             reasons=["Website exists"],
             warnings=[],
         ),
@@ -129,12 +130,33 @@ def test_good_lead() -> None:
     assert intelligence.is_good_lead is True
 
 
+def test_bad_lead_when_not_qualified() -> None:
+    inputs = make_good_lead_inputs()
+    inputs["qualification"] = QualificationResult(
+        qualified=False,
+        score=35,
+        level="Poor",
+        reasons=[],
+        warnings=["Mobile app already exists"],
+    )
+    intelligence = LeadIntelligenceService().build(**inputs)  # type: ignore[arg-type]
+    assert intelligence.is_good_lead is False
+
+
 def test_bad_lead_with_mobile_app() -> None:
     inputs = make_good_lead_inputs()
     inputs["mobile_detection"] = MobileAppDetectionResult(
         has_mobile_app=True,
         confidence=0.95,
         android_detected=True,
+    )
+    # Scoring engine marks mobile apps unqualified; intelligence mirrors that flag.
+    inputs["qualification"] = QualificationResult(
+        qualified=False,
+        score=40,
+        level="Fair",
+        reasons=[],
+        warnings=["-25 Mobile app already exists"],
     )
     intelligence = LeadIntelligenceService().build(**inputs)  # type: ignore[arg-type]
     assert intelligence.is_good_lead is False
@@ -150,10 +172,11 @@ def test_no_contacts() -> None:
         contact_count=0,
     )
     intelligence = LeadIntelligenceService().build(**inputs)  # type: ignore[arg-type]
-    assert intelligence.is_good_lead is False
     assert intelligence.best_contact is None
     assert intelligence.primary_email is None
     assert intelligence.primary_founder is None
+    # is_good_lead follows qualification.qualified only (Good/Excellent).
+    assert intelligence.is_good_lead is True
 
 
 def test_technology_list() -> None:

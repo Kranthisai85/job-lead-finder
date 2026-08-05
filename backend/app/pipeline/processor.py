@@ -7,6 +7,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.collectors.types import CompanyLead
+from app.company_intelligence.service import CompanyIntelligenceService
 from app.company_profile.service import CompanyProfileService
 from app.contact_discovery.service import ContactDiscoveryService
 from app.core.logger import get_logger
@@ -14,8 +15,11 @@ from app.crawler.base import HttpWebsiteCrawler
 from app.crawler.service import WebsiteCrawlerService
 from app.crawler.types import WebsiteProfile
 from app.email_patterns.service import EmailPatternService
+from app.founder_enrichment.service import FounderEnrichmentService
+from app.hiring_detection.service import HiringDetectionService
 from app.intelligence.service import LeadIntelligenceService
 from app.mobile_detection.service import MobileAppDetectionService
+from app.opportunity_scoring.service import OpportunityScoringService
 from app.pipeline.types import (
     PIPELINE_VERSION,
     CompleteLead,
@@ -82,6 +86,10 @@ class LeadProcessor:
         company_profile_service: CompanyProfileService | None = None,
         technology_service: TechnologyDetectionService | None = None,
         mobile_service: MobileAppDetectionService | None = None,
+        hiring_service: HiringDetectionService | None = None,
+        company_intelligence_service: CompanyIntelligenceService | None = None,
+        opportunity_scoring_service: OpportunityScoringService | None = None,
+        founder_enrichment_service: FounderEnrichmentService | None = None,
         qualification_service: QualificationService | None = None,
         contact_service: ContactDiscoveryService | None = None,
         email_pattern_service: EmailPatternService | None = None,
@@ -93,8 +101,16 @@ class LeadProcessor:
         self.company_profile_service = company_profile_service or CompanyProfileService()
         self.technology_service = technology_service or TechnologyDetectionService()
         self.mobile_service = mobile_service or MobileAppDetectionService()
-        self.qualification_service = qualification_service or QualificationService()
         self.contact_service = contact_service or ContactDiscoveryService()
+        self.founder_enrichment_service = founder_enrichment_service or FounderEnrichmentService()
+        self.hiring_service = hiring_service or HiringDetectionService()
+        self.company_intelligence_service = (
+            company_intelligence_service or CompanyIntelligenceService()
+        )
+        self.opportunity_scoring_service = (
+            opportunity_scoring_service or OpportunityScoringService()
+        )
+        self.qualification_service = qualification_service or QualificationService()
         self.email_pattern_service = email_pattern_service or EmailPatternService()
         self.intelligence_service = intelligence_service or LeadIntelligenceService()
 
@@ -135,6 +151,46 @@ class LeadProcessor:
                 stage="contacts",
                 func=lambda: self.contact_service.discover(profile),
             )
+            lead.founder_enrichment = self._run_sync_stage(
+                lead,
+                stage="founder_enrichment",
+                func=lambda: self.founder_enrichment_service.enrich(
+                    contacts=lead.contacts,
+                    website_profile=profile,
+                    company_intelligence=lead.company_intelligence,
+                    decision_makers=(lead.contacts.decision_makers if lead.contacts else None),
+                ),
+            )
+            lead.hiring_report = self._run_sync_stage(
+                lead,
+                stage="hiring",
+                func=lambda: self.hiring_service.detect(profile),
+            )
+            lead.company_intelligence = self._run_sync_stage(
+                lead,
+                stage="company_intelligence",
+                func=lambda: self.company_intelligence_service.analyze(
+                    profile,
+                    technology_report=lead.technology_report,
+                    hiring_report=lead.hiring_report,
+                ),
+            )
+            lead.opportunity_score = self._run_sync_stage(
+                lead,
+                stage="opportunity_scoring",
+                func=lambda: self.opportunity_scoring_service.score(
+                    url=profile.final_url or profile.url,
+                    source=startup.source,
+                    website_profile=profile,
+                    company_profile=lead.company_profile,
+                    technology_report=lead.technology_report,
+                    mobile_report=lead.mobile_report,
+                    contacts=lead.contacts,
+                    hiring_report=lead.hiring_report,
+                    company_intelligence=lead.company_intelligence,
+                    description=startup.description or profile.description,
+                ),
+            )
         else:
             metadata.warnings.append("Skipped enrichment stages dependent on WebsiteProfile")
 
@@ -150,7 +206,15 @@ class LeadProcessor:
         lead.qualification_report = self._run_sync_stage(
             lead,
             stage="qualification",
-            func=lambda: self.qualification_service.qualify(company_lead),
+            func=lambda: self.qualification_service.qualify_enriched(
+                company_lead,
+                website_profile=lead.website_profile,
+                technology_report=lead.technology_report,
+                mobile_report=lead.mobile_report,
+                contacts=lead.contacts,
+                hiring_report=lead.hiring_report,
+                company_intelligence=lead.company_intelligence,
+            ),
         )
 
         company = CompanyResponse(

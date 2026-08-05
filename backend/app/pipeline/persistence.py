@@ -6,13 +6,22 @@ from typing import Any
 from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
-from app.contact_discovery.types import ContactCandidate
+from app.company_intelligence.models import CompanyIntelligenceReport
+from app.company_intelligence.repository import CompanyIntelligenceRepository
+from app.contact_discovery.types import CompanyDecisionMaker, ContactCandidate
 from app.core.logger import get_logger
 from app.exceptions import DuplicateRecordError, NotFoundError, RepositoryError
+from app.founder_enrichment.models import FounderProfile
+from app.founder_enrichment.repository import FounderProfileRepository
+from app.hiring_detection.types import HiringOpportunity
+from app.opportunity_scoring.models import OpportunityScoreReport
+from app.opportunity_scoring.repository import OpportunityScoreRepository
 from app.pipeline.persistence_types import PersistenceResult
 from app.pipeline.types import CompleteLead
 from app.repositories.company_repository import CompanyRepository
 from app.repositories.contact_repository import ContactRepository
+from app.repositories.decision_maker_repository import DecisionMakerRepository
+from app.repositories.hiring_opportunity_repository import HiringOpportunityRepository
 from app.schemas.company import CreateCompanyRequest, UpdateCompanyRequest
 from app.services.company_service import CompanyService
 from app.utils.url import canonical_lead_website
@@ -49,10 +58,26 @@ class PipelinePersistenceService:
         company_service: CompanyService | None = None,
         company_repository: CompanyRepository | None = None,
         contact_repository: ContactRepository | None = None,
+        decision_maker_repository: DecisionMakerRepository | None = None,
+        hiring_opportunity_repository: HiringOpportunityRepository | None = None,
+        company_intelligence_repository: CompanyIntelligenceRepository | None = None,
+        opportunity_score_repository: OpportunityScoreRepository | None = None,
+        founder_profile_repository: FounderProfileRepository | None = None,
     ) -> None:
         self.company_repository = company_repository or CompanyRepository()
         self.company_service = company_service or CompanyService(self.company_repository)
         self.contact_repository = contact_repository or ContactRepository()
+        self.decision_maker_repository = decision_maker_repository or DecisionMakerRepository()
+        self.hiring_opportunity_repository = (
+            hiring_opportunity_repository or HiringOpportunityRepository()
+        )
+        self.company_intelligence_repository = (
+            company_intelligence_repository or CompanyIntelligenceRepository()
+        )
+        self.opportunity_score_repository = (
+            opportunity_score_repository or OpportunityScoreRepository()
+        )
+        self.founder_profile_repository = founder_profile_repository or FounderProfileRepository()
         self.logger = get_logger(__name__)
 
     async def persist(self, lead: CompleteLead) -> PersistenceResult:
@@ -127,6 +152,108 @@ class PipelinePersistenceService:
             self._record_failure(result, lead, stage="contact", kind="service", exc=exc)
 
         try:
+            dm_stats = await self._upsert_decision_makers(lead, company_id)
+            result.decision_makers_created = dm_stats["created"]
+            result.decision_makers_updated = dm_stats["updated"]
+            result.decision_makers_skipped = dm_stats["skipped"]
+        except DuplicateKeyError as exc:
+            self._record_failure(
+                result, lead, stage="decision_maker", kind="duplicate_key", exc=exc
+            )
+        except ValidationError as exc:
+            self._record_failure(result, lead, stage="decision_maker", kind="validation", exc=exc)
+        except PyMongoError as exc:
+            self._record_failure(result, lead, stage="decision_maker", kind="mongodb", exc=exc)
+        except RepositoryError as exc:
+            self._record_failure(result, lead, stage="decision_maker", kind="repository", exc=exc)
+        except Exception as exc:
+            self._record_failure(result, lead, stage="decision_maker", kind="service", exc=exc)
+
+        try:
+            founder_stats = await self._upsert_founder_profiles(lead, company_id)
+            result.founders_created = founder_stats["created"]
+            result.founders_updated = founder_stats["updated"]
+            result.founders_skipped = founder_stats["skipped"]
+        except DuplicateKeyError as exc:
+            self._record_failure(
+                result, lead, stage="founder_profile", kind="duplicate_key", exc=exc
+            )
+        except ValidationError as exc:
+            self._record_failure(result, lead, stage="founder_profile", kind="validation", exc=exc)
+        except PyMongoError as exc:
+            self._record_failure(result, lead, stage="founder_profile", kind="mongodb", exc=exc)
+        except RepositoryError as exc:
+            self._record_failure(result, lead, stage="founder_profile", kind="repository", exc=exc)
+        except Exception as exc:
+            self._record_failure(result, lead, stage="founder_profile", kind="service", exc=exc)
+
+        try:
+            hiring_stats = await self._upsert_hiring_opportunities(lead, company_id)
+            result.hiring_opportunities_created = hiring_stats["created"]
+            result.hiring_opportunities_updated = hiring_stats["updated"]
+            result.hiring_opportunities_skipped = hiring_stats["skipped"]
+        except DuplicateKeyError as exc:
+            self._record_failure(
+                result, lead, stage="hiring_opportunity", kind="duplicate_key", exc=exc
+            )
+        except ValidationError as exc:
+            self._record_failure(
+                result, lead, stage="hiring_opportunity", kind="validation", exc=exc
+            )
+        except PyMongoError as exc:
+            self._record_failure(result, lead, stage="hiring_opportunity", kind="mongodb", exc=exc)
+        except RepositoryError as exc:
+            self._record_failure(
+                result, lead, stage="hiring_opportunity", kind="repository", exc=exc
+            )
+        except Exception as exc:
+            self._record_failure(result, lead, stage="hiring_opportunity", kind="service", exc=exc)
+
+        try:
+            result.company_intelligence_saved = await self._upsert_company_intelligence(
+                lead, company_id
+            )
+        except DuplicateKeyError as exc:
+            self._record_failure(
+                result, lead, stage="company_intelligence", kind="duplicate_key", exc=exc
+            )
+        except ValidationError as exc:
+            self._record_failure(
+                result, lead, stage="company_intelligence", kind="validation", exc=exc
+            )
+        except PyMongoError as exc:
+            self._record_failure(
+                result, lead, stage="company_intelligence", kind="mongodb", exc=exc
+            )
+        except RepositoryError as exc:
+            self._record_failure(
+                result, lead, stage="company_intelligence", kind="repository", exc=exc
+            )
+        except Exception as exc:
+            self._record_failure(
+                result, lead, stage="company_intelligence", kind="service", exc=exc
+            )
+
+        try:
+            result.opportunity_score_saved = await self._upsert_opportunity_score(lead, company_id)
+        except DuplicateKeyError as exc:
+            self._record_failure(
+                result, lead, stage="opportunity_score", kind="duplicate_key", exc=exc
+            )
+        except ValidationError as exc:
+            self._record_failure(
+                result, lead, stage="opportunity_score", kind="validation", exc=exc
+            )
+        except PyMongoError as exc:
+            self._record_failure(result, lead, stage="opportunity_score", kind="mongodb", exc=exc)
+        except RepositoryError as exc:
+            self._record_failure(
+                result, lead, stage="opportunity_score", kind="repository", exc=exc
+            )
+        except Exception as exc:
+            self._record_failure(result, lead, stage="opportunity_score", kind="service", exc=exc)
+
+        try:
             result.email_pattern_saved = await self._persist_email_pattern(lead, company_id)
         except DuplicateKeyError as exc:
             self._record_failure(result, lead, stage="email_pattern", kind="duplicate_key", exc=exc)
@@ -144,6 +271,10 @@ class PipelinePersistenceService:
             (
                 "persist_completed company=%s company_id=%s created=%s updated=%s "
                 "contacts_created=%d contacts_updated=%d contacts_skipped=%d "
+                "decision_makers_created=%d decision_makers_updated=%d "
+                "founders_created=%d founders_updated=%d "
+                "hiring_opportunities_created=%d hiring_opportunities_updated=%d "
+                "company_intelligence_saved=%s opportunity_score_saved=%s "
                 "email_pattern_saved=%s duplicates_skipped=%d errors=%d duration_ms=%.2f"
             ),
             lead.startup.name,
@@ -153,6 +284,14 @@ class PipelinePersistenceService:
             result.contacts_created,
             result.contacts_updated,
             result.contacts_skipped,
+            result.decision_makers_created,
+            result.decision_makers_updated,
+            result.founders_created,
+            result.founders_updated,
+            result.hiring_opportunities_created,
+            result.hiring_opportunities_updated,
+            result.company_intelligence_saved,
+            result.opportunity_score_saved,
             result.email_pattern_saved,
             result.duplicates_skipped,
             len(result.errors),
@@ -326,6 +465,262 @@ class PipelinePersistenceService:
                 stats["updated"] += 1
                 stats["duplicates_skipped"] += 1
         return stats
+
+    async def _upsert_decision_makers(self, lead: CompleteLead, company_id: str) -> dict[str, int]:
+        stats = {"created": 0, "updated": 0, "skipped": 0}
+        if lead.contacts is None or not lead.contacts.decision_makers:
+            return stats
+
+        for maker in lead.contacts.decision_makers:
+            payload = self._decision_maker_payload(maker, company_id)
+            if not payload["name"]:
+                stats["skipped"] += 1
+                continue
+
+            existing = None
+            email = payload.get("email")
+            if email:
+                existing = await self.decision_maker_repository.find_one(
+                    {"company_id": company_id, "email": email}
+                )
+            if existing is None and payload.get("linkedin"):
+                existing = await self.decision_maker_repository.find_one(
+                    {"company_id": company_id, "linkedin": payload["linkedin"]}
+                )
+            if existing is None and payload.get("github"):
+                existing = await self.decision_maker_repository.find_one(
+                    {"company_id": company_id, "github": payload["github"]}
+                )
+            if existing is None:
+                existing = await self.decision_maker_repository.find_one(
+                    {
+                        "company_id": company_id,
+                        "name": payload["name"],
+                        "role": payload.get("role"),
+                    }
+                )
+
+            if existing is None:
+                await self.decision_maker_repository.create(payload)
+                stats["created"] += 1
+            else:
+                await self.decision_maker_repository.update(str(existing.id), payload)
+                stats["updated"] += 1
+        return stats
+
+    @staticmethod
+    def _decision_maker_payload(maker: CompanyDecisionMaker, company_id: str) -> dict[str, Any]:
+        return {
+            "company_id": company_id,
+            "name": maker.name.strip(),
+            "role": maker.role,
+            "email": (maker.email or "").strip().lower() or None,
+            "linkedin": maker.linkedin,
+            "github": maker.github,
+            "twitter": maker.twitter,
+            "confidence": maker.confidence,
+            "source_page": maker.source_page,
+            "contact_score": maker.contact_score,
+        }
+
+    async def _upsert_founder_profiles(self, lead: CompleteLead, company_id: str) -> dict[str, int]:
+        stats = {"created": 0, "updated": 0, "skipped": 0}
+        report = lead.founder_enrichment
+        if report is None or report.empty or not report.founders:
+            return stats
+
+        primary_key = None
+        if report.primary_founder:
+            primary_key = (
+                (report.primary_founder.email or "").lower(),
+                (report.primary_founder.full_name or "").lower(),
+            )
+
+        for founder in report.founders:
+            payload = self._founder_profile_payload(
+                founder,
+                company_id,
+                is_primary=bool(
+                    primary_key
+                    and (
+                        (founder.email or "").lower(),
+                        (founder.full_name or "").lower(),
+                    )
+                    == primary_key
+                ),
+            )
+            if not payload["full_name"] and not payload["email"]:
+                stats["skipped"] += 1
+                continue
+
+            existing = None
+            if payload.get("email"):
+                existing = await self.founder_profile_repository.find_one(
+                    {"company_id": company_id, "email": payload["email"]}
+                )
+            if existing is None and payload.get("linkedin"):
+                existing = await self.founder_profile_repository.find_one(
+                    {"company_id": company_id, "linkedin": payload["linkedin"]}
+                )
+            if existing is None and payload.get("full_name"):
+                existing = await self.founder_profile_repository.find_one(
+                    {"company_id": company_id, "full_name": payload["full_name"]}
+                )
+
+            if existing is None:
+                await self.founder_profile_repository.create(payload)
+                stats["created"] += 1
+            else:
+                await self.founder_profile_repository.update(str(existing.id), payload)
+                stats["updated"] += 1
+        return stats
+
+    @staticmethod
+    def _founder_profile_payload(
+        founder: FounderProfile, company_id: str, *, is_primary: bool
+    ) -> dict[str, Any]:
+        return {
+            "company_id": company_id,
+            "first_name": founder.first_name,
+            "last_name": founder.last_name,
+            "full_name": founder.full_name,
+            "role": founder.role,
+            "email": (founder.email or "").strip().lower() or None,
+            "bio": founder.bio,
+            "github": founder.github,
+            "twitter": founder.twitter,
+            "linkedin": founder.linkedin,
+            "personal_website": founder.personal_website,
+            "location": founder.location,
+            "avatar_url": founder.avatar_url,
+            "confidence": founder.confidence,
+            "source_page": founder.source_page,
+            "discovery_source": founder.discovery_source,
+            "is_primary": is_primary,
+        }
+
+    async def _upsert_hiring_opportunities(
+        self, lead: CompleteLead, company_id: str
+    ) -> dict[str, int]:
+        stats = {"created": 0, "updated": 0, "skipped": 0}
+        if lead.hiring_report is None or not lead.hiring_report.opportunities:
+            return stats
+
+        for opportunity in lead.hiring_report.opportunities:
+            payload = self._hiring_opportunity_payload(opportunity, company_id)
+            if not payload["title"]:
+                stats["skipped"] += 1
+                continue
+
+            existing = None
+            if payload.get("url"):
+                existing = await self.hiring_opportunity_repository.find_one(
+                    {"company_id": company_id, "url": payload["url"]}
+                )
+            if existing is None:
+                existing = await self.hiring_opportunity_repository.find_one(
+                    {"company_id": company_id, "title": payload["title"]}
+                )
+
+            if existing is None:
+                await self.hiring_opportunity_repository.create(payload)
+                stats["created"] += 1
+            else:
+                await self.hiring_opportunity_repository.update(str(existing.id), payload)
+                stats["updated"] += 1
+        return stats
+
+    @staticmethod
+    def _hiring_opportunity_payload(
+        opportunity: HiringOpportunity, company_id: str
+    ) -> dict[str, Any]:
+        return {
+            "company_id": company_id,
+            "title": opportunity.title.strip(),
+            "department": opportunity.department,
+            "location": opportunity.location,
+            "remote": opportunity.remote,
+            "employment_type": opportunity.employment_type,
+            "url": opportunity.url,
+            "provider": opportunity.provider,
+            "confidence": opportunity.confidence,
+            "matched_keywords": list(opportunity.matched_keywords or []),
+            "seniority": opportunity.seniority,
+            "source_page": opportunity.source_page,
+        }
+
+    async def _upsert_company_intelligence(self, lead: CompleteLead, company_id: str) -> bool:
+        report = lead.company_intelligence
+        if report is None:
+            return False
+        payload = self._company_intelligence_payload(report, company_id)
+        existing = await self.company_intelligence_repository.find_one({"company_id": company_id})
+        if existing is None:
+            await self.company_intelligence_repository.create(payload)
+        else:
+            await self.company_intelligence_repository.update(str(existing.id), payload)
+        return True
+
+    @staticmethod
+    def _company_intelligence_payload(
+        report: CompanyIntelligenceReport, company_id: str
+    ) -> dict[str, Any]:
+        return {
+            "company_id": company_id,
+            "url": report.url,
+            "industry": report.industry,
+            "subcategory": report.subcategory,
+            "business_model": report.business_model,
+            "target_customer": report.target_customer,
+            "pricing_model": report.pricing_model,
+            "company_stage": report.company_stage,
+            "estimated_team_size": report.estimated_team_size,
+            "estimated_maturity": report.estimated_maturity,
+            "competitors": list(report.competitors or []),
+            "keywords": list(report.keywords or []),
+            "pain_points": list(report.pain_points or []),
+            "opportunities": list(report.opportunities or []),
+            "funding_status": report.funding_status,
+            "confidence": report.confidence,
+            "main_product": report.main_product,
+            "product_category": report.product_category,
+            "has_pricing_page": report.has_pricing_page,
+            "is_b2b_saas": report.is_b2b_saas,
+            "is_enterprise_software": report.is_enterprise_software,
+            "is_developer_tools": report.is_developer_tools,
+            "is_consumer_only": report.is_consumer_only,
+            "has_clear_icp": report.has_clear_icp,
+            "signals": list(report.signals or []),
+        }
+
+    async def _upsert_opportunity_score(self, lead: CompleteLead, company_id: str) -> bool:
+        report = lead.opportunity_score
+        if report is None:
+            return False
+        payload = self._opportunity_score_payload(report, company_id)
+        existing = await self.opportunity_score_repository.find_one({"company_id": company_id})
+        if existing is None:
+            await self.opportunity_score_repository.create(payload)
+        else:
+            await self.opportunity_score_repository.update(str(existing.id), payload)
+        return True
+
+    @staticmethod
+    def _opportunity_score_payload(
+        report: OpportunityScoreReport, company_id: str
+    ) -> dict[str, Any]:
+        return {
+            "company_id": company_id,
+            "url": report.url,
+            "overall_score": report.overall_score,
+            "priority": report.priority,
+            "opportunity_level": report.opportunity_level,
+            "reasons": list(report.reasons or []),
+            "warnings": list(report.warnings or []),
+            "recommended_action": report.recommended_action,
+            "confidence": report.confidence,
+            "score_breakdown": dict(report.score_breakdown or {}),
+        }
 
     @staticmethod
     def _contact_full_name(candidate: ContactCandidate) -> str | None:

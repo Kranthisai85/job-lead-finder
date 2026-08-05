@@ -66,8 +66,23 @@ class PersonalizationGenerator:
 
     @staticmethod
     def _is_flutter_lead(lead: CompleteLead, has_mobile_app: bool) -> bool:
+        # Flutter outreach targets Good/Excellent leads without an existing mobile app.
+        if has_mobile_app:
+            return False
         if lead.lead_intelligence is not None:
-            return bool(lead.lead_intelligence.is_good_lead)
+            if not lead.lead_intelligence.is_good_lead:
+                return False
+            return bool(
+                lead.lead_intelligence.primary_email
+                or lead.lead_intelligence.best_contact
+                or (
+                    lead.lead_intelligence.contact_discovery
+                    and (
+                        lead.lead_intelligence.contact_discovery.emails
+                        or lead.lead_intelligence.contact_discovery.contacts
+                    )
+                )
+            )
         qualification_passed = bool(
             lead.qualification_report and lead.qualification_report.qualified
         )
@@ -76,7 +91,7 @@ class PersonalizationGenerator:
             lead.contacts
             and (lead.contacts.contact_count > 0 or lead.contacts.emails or lead.contacts.contacts)
         )
-        return not has_mobile_app and qualification_passed and has_website and has_contact
+        return qualification_passed and has_website and has_contact
 
     def _company_summary(self, lead: CompleteLead, company_name: str) -> str:
         profile = lead.company_profile

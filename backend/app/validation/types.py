@@ -3,8 +3,12 @@ from pydantic import BaseModel, Field
 from app.contact_discovery.types import ContactDiscoveryReport
 from app.crawler.types import WebsiteProfile
 from app.email_patterns.types import EmailPatternReport
+from app.hiring_detection.types import HiringDetectionReport
+from app.company_intelligence.models import CompanyIntelligenceReport
+from app.founder_enrichment.models import FounderEnrichmentReport
 from app.intelligence.types import LeadIntelligence
 from app.mobile_detection.types import MobileAppDetectionResult
+from app.opportunity_scoring.models import OpportunityScoreReport
 from app.qualification.types import QualificationResult
 from app.technology.types import TechnologyReport
 
@@ -15,6 +19,11 @@ DECISION_MAKER_ROLES = {
     "cto",
     "owner",
     "director",
+    "vp engineering",
+    "engineering manager",
+    "product manager",
+    "hiring manager",
+    "mobile lead",
 }
 
 
@@ -45,6 +54,10 @@ class CompanyValidationResult(BaseModel):
     website_profile: WebsiteProfile | None = None
     technology_report: TechnologyReport | None = None
     mobile_detection: MobileAppDetectionResult | None = None
+    hiring_report: HiringDetectionReport | None = None
+    company_intelligence: CompanyIntelligenceReport | None = None
+    opportunity_score: OpportunityScoreReport | None = None
+    founder_enrichment: FounderEnrichmentReport | None = None
     qualification: QualificationResult | None = None
     contact_discovery: ContactDiscoveryReport | None = None
     email_patterns: EmailPatternReport | None = None
@@ -88,6 +101,8 @@ def compute_lead_score(
 def count_decision_makers(contact_discovery: ContactDiscoveryReport | None) -> int:
     if contact_discovery is None:
         return 0
+    if contact_discovery.decision_makers_found:
+        return contact_discovery.decision_makers_found
     count = 0
     for contact in contact_discovery.contacts:
         role = (contact.role or "").lower()
