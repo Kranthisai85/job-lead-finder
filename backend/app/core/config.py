@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     mobile_detection_enabled: bool = True
     mobile_detection_minimum_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
 
+    enabled_sources: str = "producthunt"
+    collection_timeout: float = Field(default=120.0, ge=1.0)
+    max_collectors: int = Field(default=10, ge=1, le=50)
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
