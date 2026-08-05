@@ -241,7 +241,71 @@ async def test_persist_repository_failure(test_db: Any) -> None:
 
     assert result.company_id is None
     assert result.errors
-    assert "company persistence failed" in result.errors[0]
+    assert "company persistence failed (repository)" in result.errors[0]
+    assert "boom" in result.errors[0]
+
+
+@pytest.mark.asyncio
+async def test_persist_validation_error_includes_message(test_db: Any) -> None:
+    from pydantic import ValidationError
+
+    company_service = MagicMock()
+    company_service.create_company = AsyncMock(
+        side_effect=ValidationError.from_exception_data(
+            "CreateCompanyRequest",
+            [
+                {
+                    "type": "string_too_short",
+                    "loc": ("name",),
+                    "input": "",
+                    "ctx": {"min_length": 1},
+                }
+            ],
+        )
+    )
+    company_repository = MagicMock()
+    company_repository.find_one = AsyncMock(return_value=None)
+    service = PipelinePersistenceService(
+        company_service=company_service,
+        company_repository=company_repository,
+    )
+
+    result = await service.persist(make_lead())
+
+    assert result.company_id is None
+    assert result.errors
+    assert "company persistence failed (validation)" in result.errors[0]
+    assert "ValidationError" in result.errors[0]
+
+
+@pytest.mark.asyncio
+async def test_persist_duplicate_key_error_includes_message(test_db: Any) -> None:
+    from pymongo.errors import DuplicateKeyError
+
+    company_repository = MagicMock()
+    company_repository.find_one = AsyncMock(side_effect=DuplicateKeyError("E11000 duplicate"))
+    service = PipelinePersistenceService(company_repository=company_repository)
+
+    result = await service.persist(make_lead())
+
+    assert result.company_id is None
+    assert result.errors
+    assert "company persistence failed (duplicate_key)" in result.errors[0]
+    assert "E11000" in result.errors[0]
+
+
+@pytest.mark.asyncio
+async def test_persist_empty_exception_message_uses_type_name(test_db: Any) -> None:
+    company_repository = MagicMock()
+    company_repository.find_one = AsyncMock(side_effect=RuntimeError())
+    service = PipelinePersistenceService(company_repository=company_repository)
+
+    result = await service.persist(make_lead())
+
+    assert result.company_id is None
+    assert result.errors
+    assert "company persistence failed (service)" in result.errors[0]
+    assert "RuntimeError" in result.errors[0]
 
 
 @pytest.mark.asyncio

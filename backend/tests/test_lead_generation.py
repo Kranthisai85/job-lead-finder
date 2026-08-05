@@ -228,6 +228,49 @@ async def test_persist_disabled() -> None:
 
 
 @pytest.mark.asyncio
+async def test_persist_soft_failure_surfaces_real_error() -> None:
+    persist_mock = AsyncMock(
+        return_value=PersistenceResult(
+            company_id=None,
+            errors=["company persistence failed (mongodb): ServerSelectionTimeoutError: timeout"],
+            duration_ms=1.0,
+        )
+    )
+    persistence_service = AsyncMock()
+    persistence_service.persist = persist_mock
+    harness = build_orchestrator(persistence_service=persistence_service)
+    report = await harness.orchestrator.run(limit=1, generate_emails=False, enqueue_emails=False)
+
+    assert report.results[0].success is False
+    assert report.results[0].persisted is False
+    assert "ServerSelectionTimeoutError" in report.results[0].errors[0]
+    assert "Persistence failed" not in report.results[0].errors[0]
+    persist_timing = next(
+        timing for timing in report.results[0].stage_timings if timing.stage == "persist"
+    )
+    assert persist_timing.success is False
+    assert "ServerSelectionTimeoutError" in (persist_timing.error or "")
+
+
+@pytest.mark.asyncio
+async def test_persist_raised_empty_exception_includes_type_name() -> None:
+    persist_mock = AsyncMock(side_effect=RuntimeError())
+    persistence_service = AsyncMock()
+    persistence_service.persist = persist_mock
+    harness = build_orchestrator(persistence_service=persistence_service)
+    report = await harness.orchestrator.run(limit=1, generate_emails=False, enqueue_emails=False)
+
+    assert report.results[0].success is False
+    assert "RuntimeError" in report.results[0].errors[0]
+    assert "Persistence failed" not in report.results[0].errors[0]
+    persist_timing = next(
+        timing for timing in report.results[0].stage_timings if timing.stage == "persist"
+    )
+    assert persist_timing.success is False
+    assert "RuntimeError" in (persist_timing.error or "")
+
+
+@pytest.mark.asyncio
 async def test_exception_during_one_company_continues() -> None:
     pipeline_service = AsyncMock()
     pipeline_service.process = AsyncMock(

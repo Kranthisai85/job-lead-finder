@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from app.ai.client import OllamaClient
+from app.ai.client import OllamaClient, format_ollama_error
 from app.ai.generator import AIEmailGenerator
 from app.ai.prompts import (
     build_email_prompt,
@@ -200,8 +200,25 @@ async def test_service_generate_never_raises() -> None:
     assert email.generation_source == "fallback"
 
 
+def test_format_ollama_error_handles_empty_exception_message() -> None:
+    exc = httpx.ConnectError("")
+    exc.__cause__ = ConnectionRefusedError(111, "Connection refused")
+
+    detail = format_ollama_error(
+        exc,
+        url="http://172.17.0.1:11434/api/generate",
+        timeout=60.0,
+    )
+
+    assert "type=ConnectError" in detail
+    assert "url=http://172.17.0.1:11434/api/generate" in detail
+    assert "timeout=60.0" in detail
+    assert "cause=ConnectionRefusedError" in detail
+    assert "Connection refused" in detail
+
+
 @pytest.mark.asyncio
-async def test_retry_on_transient_failure() -> None:
+async def test_retry_on_transient_failure(caplog: pytest.LogCaptureFixture) -> None:
     mock_response = MagicMock()
     mock_response.raise_for_status = MagicMock()
     mock_response.json.return_value = {
@@ -217,19 +234,72 @@ async def test_retry_on_transient_failure() -> None:
         "done": True,
     }
 
+    # Empty-message ConnectError mimics real httpx behavior on the VPS.
+    empty_connect = httpx.ConnectError("")
+    empty_connect.__cause__ = OSError(111, "Connection refused")
+
     http_client = AsyncMock()
     http_client.post = AsyncMock(
         side_effect=[
-            httpx.ConnectError("down"),
+            empty_connect,
             httpx.ConnectError("down again"),
             mock_response,
         ]
     )
 
-    client = OllamaClient(client=http_client, max_retries=2)
-    result = await client.generate("test prompt")
+    client = OllamaClient(
+        client=http_client,
+        max_retries=2,
+        base_url="http://172.17.0.1:11434",
+        timeout=60.0,
+    )
+    with caplog.at_level("WARNING"):
+        result = await client.generate("test prompt")
+
     assert "Retry ok" in result.response
     assert http_client.post.await_count == 3
+
+    transient_logs = [
+        record.getMessage()
+        for record in caplog.records
+        if "ollama_transient_failure" in record.getMessage()
+    ]
+    assert len(transient_logs) == 2
+    for message in transient_logs:
+        assert "type=ConnectError" in message
+        assert "url=http://172.17.0.1:11434/api/generate" in message
+        assert "timeout=60.0" in message
+        assert "error=type=ConnectError" in message
+
+
+@pytest.mark.asyncio
+async def test_server_error_logs_status_and_body(caplog: pytest.LogCaptureFixture) -> None:
+    request = httpx.Request("POST", "http://ollama.local/api/generate")
+    response = httpx.Response(503, request=request, text="model loading")
+    http_client = AsyncMock()
+    http_client.post = AsyncMock(
+        side_effect=httpx.HTTPStatusError(
+            "Server Error",
+            request=request,
+            response=response,
+        )
+    )
+
+    client = OllamaClient(client=http_client, max_retries=0, timeout=12.0)
+    with caplog.at_level("WARNING"), pytest.raises(httpx.HTTPStatusError):
+        await client.generate("test prompt")
+
+    server_logs = [
+        record.getMessage()
+        for record in caplog.records
+        if "ollama_server_error" in record.getMessage()
+    ]
+    assert len(server_logs) == 1
+    assert "type=HTTPStatusError" in server_logs[0]
+    assert "status=503" in server_logs[0]
+    assert "body=model loading" in server_logs[0]
+    assert "url=http://ollama.local/api/generate" in server_logs[0]
+    assert "timeout=12.0" in server_logs[0]
 
 
 @pytest.mark.asyncio

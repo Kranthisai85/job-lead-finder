@@ -9,6 +9,78 @@ from app.ai.types import OllamaGenerateResponse
 from app.core.config import settings
 from app.core.logger import get_logger
 
+_MAX_BODY_LOG_CHARS = 500
+
+
+def format_ollama_error(
+    exc: BaseException,
+    *,
+    url: str,
+    timeout: float,
+) -> str:
+    """Build a non-empty diagnostic string for Ollama request failures."""
+    parts: list[str] = [f"type={type(exc).__name__}"]
+
+    message = str(exc).strip()
+    if message:
+        parts.append(f"message={message}")
+
+    request_url = url
+    request = _safe_request(exc)
+    if request is not None:
+        request_url = str(getattr(request, "url", request_url) or request_url)
+    parts.append(f"url={request_url}")
+    parts.append(f"timeout={timeout}")
+
+    response = getattr(exc, "response", None)
+    if response is not None:
+        status_code = getattr(response, "status_code", None)
+        if status_code is not None:
+            parts.append(f"status={status_code}")
+        body = _safe_response_body(response)
+        if body:
+            parts.append(f"body={body}")
+
+    cause = exc.__cause__ or exc.__context__
+    if cause is not None and cause is not exc:
+        cause_message = str(cause).strip() or type(cause).__name__
+        parts.append(f"cause={type(cause).__name__}: {cause_message}")
+
+    return " ".join(parts)
+
+
+def _safe_request(exc: BaseException) -> httpx.Request | None:
+    # httpx.RequestError.request raises if the request was never attached.
+    request = getattr(exc, "_request", None)
+    if isinstance(request, httpx.Request):
+        return request
+    try:
+        maybe_request = getattr(exc, "request", None)
+    except RuntimeError:
+        return None
+    if isinstance(maybe_request, httpx.Request):
+        return maybe_request
+    return None
+
+
+def _safe_response_body(response: object) -> str:
+    text_getter = getattr(response, "text", None)
+    raw = ""
+    if callable(text_getter):
+        try:
+            raw = str(text_getter() or "")
+        except Exception:
+            raw = ""
+    elif isinstance(text_getter, str):
+        raw = text_getter
+
+    cleaned = " ".join(raw.split())
+    if not cleaned:
+        return ""
+    if len(cleaned) > _MAX_BODY_LOG_CHARS:
+        return f"{cleaned[:_MAX_BODY_LOG_CHARS]}..."
+    return cleaned
+
 
 class OllamaClient:
     """HTTP client for the local Ollama /api/generate endpoint."""
@@ -66,20 +138,27 @@ class OllamaClient:
                 return parsed
             except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as exc:
                 last_error = exc
+                detail = format_ollama_error(exc, url=url, timeout=self.timeout)
                 self.logger.warning(
                     "ollama_transient_failure attempt=%d error=%s",
                     attempt + 1,
-                    exc,
+                    detail,
                 )
             except httpx.HTTPStatusError as exc:
+                detail = format_ollama_error(exc, url=url, timeout=self.timeout)
                 if exc.response.status_code >= 500:
                     last_error = exc
                     self.logger.warning(
-                        "ollama_server_error attempt=%d status=%d",
+                        "ollama_server_error attempt=%d error=%s",
                         attempt + 1,
-                        exc.response.status_code,
+                        detail,
                     )
                 else:
+                    self.logger.error(
+                        "ollama_client_error attempt=%d error=%s",
+                        attempt + 1,
+                        detail,
+                    )
                     raise
 
         assert last_error is not None

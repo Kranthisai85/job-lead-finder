@@ -48,9 +48,10 @@ class BaseRepository(Generic[ModelType]):
         )
 
     def _map_exception(self, error: Exception) -> RepositoryError:
+        detail = str(error).strip() or type(error).__name__
         if isinstance(error, DuplicateKeyError):
-            return DuplicateRecordError("Duplicate record detected")
-        return RepositoryError("Repository operation failed")
+            return DuplicateRecordError(f"Duplicate record detected: {detail}")
+        return RepositoryError(f"Repository operation failed: {detail}")
 
     async def create(self, payload: dict[str, Any] | ModelType) -> ModelType:
         operation = "create"

@@ -18,7 +18,7 @@ from app.lead_generation.types import (
 )
 from app.personalization.service import CompanyPersonalizationService
 from app.personalization.types import PersonalizedEmailContext
-from app.pipeline.persistence import PipelinePersistenceService
+from app.pipeline.persistence import PipelinePersistenceService, format_exception_message
 from app.pipeline.persistence_types import PersistenceResult
 from app.pipeline.service import LeadPipelineService
 from app.pipeline.types import CompleteLead, StartupSeed
@@ -27,6 +27,7 @@ from app.source_manager.types import SourceCollectionReport
 from app.validation.types import compute_lead_score
 
 T = TypeVar("T")
+logger = get_logger(__name__)
 
 
 class LeadGenerationOrchestrator:
@@ -161,14 +162,36 @@ class LeadGenerationOrchestrator:
             result.stage_timings.append(persist_timing)
             if not persist_timing.success or persistence_result is None:
                 result.success = False
-                result.errors.append(persist_timing.error or "Persistence failed")
+                error_message = (persist_timing.error or "").strip()
+                if not error_message:
+                    error_message = "persist stage raised an exception with an empty message"
+                result.errors.append(error_message)
+                self.logger.error(
+                    "lead_generation_persist_failed company=%s website=%s error=%s",
+                    seed.name,
+                    seed.website,
+                    error_message,
+                )
             elif persistence_result.skipped:
                 result.warnings.append(persistence_result.skip_reason or "Persistence skipped")
             else:
                 result.persisted = bool(persistence_result.company_id)
                 result.company_id = persistence_result.company_id
                 if persistence_result.errors:
-                    result.warnings.extend(persistence_result.errors)
+                    if result.persisted:
+                        result.warnings.extend(persistence_result.errors)
+                    else:
+                        result.success = False
+                        result.errors.extend(persistence_result.errors)
+                        # Reflect soft failures in stage timing for the report.
+                        persist_timing.success = False
+                        persist_timing.error = "; ".join(persistence_result.errors)
+                        self.logger.error(
+                            ("lead_generation_persist_failed company=%s " "website=%s error=%s"),
+                            seed.name,
+                            seed.website,
+                            persist_timing.error,
+                        )
 
         personalization, personalization_timing = await self._run_stage_sync(
             "personalization",
@@ -249,11 +272,18 @@ class LeadGenerationOrchestrator:
             )
             return result, timing
         except Exception as exc:
+            error_message = format_exception_message(exc)
+            logger.error(
+                "lead_generation_stage_failed stage=%s error=%s",
+                stage,
+                error_message,
+                exc_info=True,
+            )
             timing = StageTiming(
                 stage=stage,
                 duration_ms=round((perf_counter() - started) * 1000, 2),
                 success=False,
-                error=str(exc),
+                error=error_message,
             )
             return None, timing
 
@@ -269,11 +299,18 @@ class LeadGenerationOrchestrator:
             )
             return result, timing
         except Exception as exc:
+            error_message = format_exception_message(exc)
+            logger.error(
+                "lead_generation_stage_failed stage=%s error=%s",
+                stage,
+                error_message,
+                exc_info=True,
+            )
             timing = StageTiming(
                 stage=stage,
                 duration_ms=round((perf_counter() - started) * 1000, 2),
                 success=False,
-                error=str(exc),
+                error=error_message,
             )
             return None, timing
 

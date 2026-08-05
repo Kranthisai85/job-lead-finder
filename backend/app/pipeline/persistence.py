@@ -3,9 +3,12 @@ from __future__ import annotations
 from time import perf_counter
 from typing import Any
 
+from pydantic import ValidationError
+from pymongo.errors import DuplicateKeyError, PyMongoError
+
 from app.contact_discovery.types import ContactCandidate
 from app.core.logger import get_logger
-from app.exceptions import DuplicateRecordError, RepositoryError
+from app.exceptions import DuplicateRecordError, NotFoundError, RepositoryError
 from app.pipeline.persistence_types import PersistenceResult
 from app.pipeline.types import CompleteLead
 from app.repositories.company_repository import CompanyRepository
@@ -16,6 +19,25 @@ from app.utils.url import normalize_website
 
 EMAIL_PATTERN_TAG_PREFIX = "email_pattern:"
 TECH_TAG_PREFIX = "tech:"
+
+
+def format_exception_message(exc: BaseException) -> str:
+    """Build a non-empty error string including exception type and cause chain."""
+    parts: list[str] = []
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        text = str(current).strip()
+        if text:
+            parts.append(f"{type(current).__name__}: {text}")
+        else:
+            parts.append(type(current).__name__)
+        next_exc = current.__cause__
+        if next_exc is None:
+            next_exc = current.__context__
+        current = next_exc
+    return " | caused by: ".join(parts) if parts else "UnknownError"
 
 
 class PipelinePersistenceService:
@@ -56,10 +78,32 @@ class PipelinePersistenceService:
             result.company_updated = updated
             if not created and not updated:
                 result.duplicates_skipped += 1
+        except DuplicateKeyError as exc:
+            self._record_failure(result, lead, stage="company", kind="duplicate_key", exc=exc)
+            result.duration_ms = round((perf_counter() - started) * 1000, 2)
+            return result
+        except DuplicateRecordError as exc:
+            self._record_failure(result, lead, stage="company", kind="duplicate_record", exc=exc)
+            result.duration_ms = round((perf_counter() - started) * 1000, 2)
+            return result
+        except ValidationError as exc:
+            self._record_failure(result, lead, stage="company", kind="validation", exc=exc)
+            result.duration_ms = round((perf_counter() - started) * 1000, 2)
+            return result
+        except NotFoundError as exc:
+            self._record_failure(result, lead, stage="company", kind="not_found", exc=exc)
+            result.duration_ms = round((perf_counter() - started) * 1000, 2)
+            return result
+        except PyMongoError as exc:
+            self._record_failure(result, lead, stage="company", kind="mongodb", exc=exc)
+            result.duration_ms = round((perf_counter() - started) * 1000, 2)
+            return result
         except RepositoryError as exc:
-            message = f"company persistence failed: {exc}"
-            result.errors.append(message)
-            self.logger.error(message)
+            self._record_failure(result, lead, stage="company", kind="repository", exc=exc)
+            result.duration_ms = round((perf_counter() - started) * 1000, 2)
+            return result
+        except Exception as exc:
+            self._record_failure(result, lead, stage="company", kind="service", exc=exc)
             result.duration_ms = round((perf_counter() - started) * 1000, 2)
             return result
 
@@ -69,24 +113,38 @@ class PipelinePersistenceService:
             result.contacts_updated = contact_stats["updated"]
             result.contacts_skipped = contact_stats["skipped"]
             result.duplicates_skipped += contact_stats["duplicates_skipped"]
+        except DuplicateKeyError as exc:
+            self._record_failure(result, lead, stage="contact", kind="duplicate_key", exc=exc)
+        except DuplicateRecordError as exc:
+            self._record_failure(result, lead, stage="contact", kind="duplicate_record", exc=exc)
+        except ValidationError as exc:
+            self._record_failure(result, lead, stage="contact", kind="validation", exc=exc)
+        except PyMongoError as exc:
+            self._record_failure(result, lead, stage="contact", kind="mongodb", exc=exc)
         except RepositoryError as exc:
-            message = f"contact persistence failed: {exc}"
-            result.errors.append(message)
-            self.logger.error(message)
+            self._record_failure(result, lead, stage="contact", kind="repository", exc=exc)
+        except Exception as exc:
+            self._record_failure(result, lead, stage="contact", kind="service", exc=exc)
 
         try:
             result.email_pattern_saved = await self._persist_email_pattern(lead, company_id)
+        except DuplicateKeyError as exc:
+            self._record_failure(result, lead, stage="email_pattern", kind="duplicate_key", exc=exc)
+        except ValidationError as exc:
+            self._record_failure(result, lead, stage="email_pattern", kind="validation", exc=exc)
+        except PyMongoError as exc:
+            self._record_failure(result, lead, stage="email_pattern", kind="mongodb", exc=exc)
         except RepositoryError as exc:
-            message = f"email pattern persistence failed: {exc}"
-            result.errors.append(message)
-            self.logger.error(message)
+            self._record_failure(result, lead, stage="email_pattern", kind="repository", exc=exc)
+        except Exception as exc:
+            self._record_failure(result, lead, stage="email_pattern", kind="service", exc=exc)
 
         result.duration_ms = round((perf_counter() - started) * 1000, 2)
         self.logger.info(
             (
                 "persist_completed company=%s company_id=%s created=%s updated=%s "
                 "contacts_created=%d contacts_updated=%d contacts_skipped=%d "
-                "email_pattern_saved=%s duplicates_skipped=%d duration_ms=%.2f"
+                "email_pattern_saved=%s duplicates_skipped=%d errors=%d duration_ms=%.2f"
             ),
             lead.startup.name,
             result.company_id,
@@ -97,9 +155,32 @@ class PipelinePersistenceService:
             result.contacts_skipped,
             result.email_pattern_saved,
             result.duplicates_skipped,
+            len(result.errors),
             result.duration_ms,
         )
         return result
+
+    def _record_failure(
+        self,
+        result: PersistenceResult,
+        lead: CompleteLead,
+        *,
+        stage: str,
+        kind: str,
+        exc: BaseException,
+    ) -> None:
+        detail = format_exception_message(exc)
+        message = f"{stage} persistence failed ({kind}): {detail}"
+        result.errors.append(message)
+        self.logger.error(
+            "persist_failed company=%s website=%s stage=%s kind=%s error=%s",
+            lead.startup.name,
+            lead.startup.website,
+            stage,
+            kind,
+            detail,
+            exc_info=True,
+        )
 
     async def _upsert_company(self, lead: CompleteLead, website: str) -> tuple[str, bool, bool]:
         existing = await self.company_repository.find_one({"website": website})
