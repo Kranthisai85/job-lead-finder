@@ -16,10 +16,7 @@ __all__ = [
 
 def __getattr__(name: str) -> Any:
     if name in {"OpportunityScoreDocument", "OpportunityScoreReport"}:
-        from app.opportunity_scoring.models import (
-            OpportunityScoreDocument,
-            OpportunityScoreReport,
-        )
+        from app.opportunity_scoring.models import OpportunityScoreDocument, OpportunityScoreReport
 
         return {
             "OpportunityScoreDocument": OpportunityScoreDocument,

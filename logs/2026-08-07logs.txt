@@ -23,3 +23,597 @@
 2026-08-07 16:59:24 [INFO] service=LeadGenerationService action=completed success=True processed=0 queued=0 duration_ms=1.00
 2026-08-07 16:59:25 [INFO] service=LeadGenerationService action=run
 2026-08-07 16:59:25 [INFO] service=LeadGenerationService action=completed success=True processed=0 queued=0 duration_ms=0.00
+2026-08-07 18:16:54 [ERROR] [EMAIL] send_failed queue_id=6a75d3be3c1077934664e7ea reason=smtp boom
+2026-08-07 18:16:54 [WARNING] email_failed id=6a75d3be3c1077934664e7ea retry_count=1 error=smtp boom
+2026-08-07 18:16:54 [ERROR] [EMAIL] send_failed queue_id=6a75d3be3c1077934664e7ee reason=nope
+2026-08-07 18:16:54 [WARNING] email_failed id=6a75d3be3c1077934664e7ee retry_count=1 error=nope
+2026-08-07 18:16:54 [ERROR] [EMAIL] send_failed queue_id=6a75d3be3c1077934664e7f0 reason=recipient rejected
+2026-08-07 18:16:54 [WARNING] email_failed id=6a75d3be3c1077934664e7f0 retry_count=1 error=recipient rejected
+2026-08-07 18:16:54 [ERROR] [EMAIL] send_failed queue_id=6a75d3be3c1077934664e7f2 reason=Invalid recipient email
+2026-08-07 18:16:54 [WARNING] email_failed id=6a75d3be3c1077934664e7f2 retry_count=1 error=Invalid recipient email
+2026-08-07 18:16:54 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.32 success=true
+2026-08-07 18:16:54 [INFO] [EMAIL] send_started queue_id=6a75d3be3c1077934664e7f3 recipient=ada@acme.example
+2026-08-07 18:16:54 [INFO] [EMAIL] smtp_send to=ada@acme.example subject=Flutter idea for Acme
+2026-08-07 18:16:54 [INFO] [EMAIL] smtp_delivered to=ada@acme.example
+2026-08-07 18:16:54 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.93 success=true
+2026-08-07 18:16:54 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.15 success=true
+2026-08-07 18:16:54 [INFO] email_sent id=6a75d3be3c1077934664e7f3 status=SENT
+2026-08-07 18:16:54 [INFO] [EMAIL] sent queue_id=6a75d3be3c1077934664e7f3 recipient=ada@acme.example
+2026-08-07 18:16:54 [ERROR] [EMAIL] send_failed queue_id=6a75d3be3c1077934664e7f4 reason=boom with *** leaked
+2026-08-07 18:17:23 [INFO] [PIPELINE] Starting run_id=55f3f9c2-ea22-4841-a7fe-5ea50453e3d5 service=LeadGenerationService
+2026-08-07 18:17:23 [INFO] [PIPELINE] Starting lead generation run limit=1 persist=True generate_emails=False enqueue_emails=False
+2026-08-07 18:17:23 [INFO] [PIPELINE] Discovered companies count=1
+2026-08-07 18:17:23 [INFO] [PIPELINE] Processing company=Acme CLI website=https://acme-cli.example
+2026-08-07 18:17:23 [INFO] [QUALIFICATION] company=Acme CLI score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-07 18:17:23 [INFO] repository=CompanyRepository collection=companies operation=find_one duration_ms=0.16 success=true
+2026-08-07 18:17:23 [INFO] repository=CompanyRepository collection=companies operation=find_one duration_ms=0.11 success=true
+2026-08-07 18:17:23 [INFO] repository=CompanyRepository collection=companies operation=create duration_ms=0.64 success=true
+2026-08-07 18:17:23 [INFO] repository=CompanyRepository collection=companies operation=update duration_ms=1.00 success=true
+2026-08-07 18:17:23 [INFO] repository=ContactRepository collection=contacts operation=find_one duration_ms=0.19 success=true
+2026-08-07 18:17:23 [INFO] repository=ContactRepository collection=contacts operation=find_one duration_ms=0.26 success=true
+2026-08-07 18:17:23 [INFO] repository=ContactRepository collection=contacts operation=create duration_ms=0.71 success=true
+2026-08-07 18:17:23 [INFO] persist_completed company=Acme CLI company_id=6a75d3db826b46067108050e created=True updated=False contacts_created=1 contacts_updated=0 contacts_skipped=0 decision_makers_created=0 decision_makers_updated=0 founders_created=0 founders_updated=0 hiring_opportunities_created=0 hiring_opportunities_updated=0 company_intelligence_saved=False opportunity_score_saved=False email_pattern_saved=False duplicates_skipped=0 errors=0 duration_ms=7.12
+2026-08-07 18:17:23 [INFO] company=Acme CLI is_flutter_lead=False has_mobile_app=False confidence=0.95 warnings=0
+2026-08-07 18:17:23 [INFO] [FLUTTER] company=Acme CLI evidence=false
+2026-08-07 18:17:23 [INFO] [PERSONALIZATION] company=Acme CLI completed
+2026-08-07 18:17:23 [INFO] [PIPELINE] company=Acme CLI completed success=true duration_ms=10.45
+2026-08-07 18:17:23 [INFO] [PIPELINE] Completed discovered=1 qualified=1 personalized=1 emails_generated=0 emails_queued=0 errors=0 duration_ms=12.91
+2026-08-07 18:17:23 [INFO] [PIPELINE] Completed run_id=55f3f9c2-ea22-4841-a7fe-5ea50453e3d5 success=True processed=1 queued=0 duration_ms=12.91
+2026-08-07 18:17:23 [INFO] [PIPELINE] Starting run_id=1b64ccec-9019-4291-9c5f-a56869d36e8d service=LeadGenerationService
+2026-08-07 18:17:23 [INFO] [PIPELINE] Completed run_id=1b64ccec-9019-4291-9c5f-a56869d36e8d success=True processed=0 queued=0 duration_ms=1.00
+2026-08-07 18:17:23 [INFO] [PIPELINE] Starting run_id=20138f9e-f733-4319-8be4-fdf8cad0f392 service=LeadGenerationService
+2026-08-07 18:17:23 [INFO] [PIPELINE] Completed run_id=20138f9e-f733-4319-8be4-fdf8cad0f392 success=True processed=0 queued=0 duration_ms=1.00
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.17 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] batch_complete attempted=0 sent=0 failed=0 skipped=0
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.17 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.15 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.24 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.24 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.19 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.15 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.22 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.15 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=1.08 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b46067108052c company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b46067108052c recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.81 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=2.14 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b46067108052c status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.17 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] batch_complete attempted=0 sent=0 failed=0 skipped=0
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.96 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.15 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b46067108052c status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.52 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] send_started queue_id=6a75d3dc826b46067108052c recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] dry_run to=ada@acme.example subject=Flutter idea for Acme body_length=89
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.77 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.38 success=true
+2026-08-07 18:17:24 [INFO] email_sent id=6a75d3dc826b46067108052c status=SENT
+2026-08-07 18:17:24 [INFO] [EMAIL] sent queue_id=6a75d3dc826b46067108052c recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] batch_complete attempted=1 sent=1 failed=0 skipped=0
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.13 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.13 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.11 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.11 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.12 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.16 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.20 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.33 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.55 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b46067108052d company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b46067108052d recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.63 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=2.57 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b46067108052d status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.74 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.56 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b46067108052d status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.61 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] send_started queue_id=6a75d3dc826b46067108052d recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_send to=ada@acme.example subject=Flutter idea for Acme
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_delivered to=ada@acme.example
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.70 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.20 success=true
+2026-08-07 18:17:24 [INFO] email_sent id=6a75d3dc826b46067108052d status=SENT
+2026-08-07 18:17:24 [INFO] [EMAIL] sent queue_id=6a75d3dc826b46067108052d recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=1.00 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b46067108052e company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b46067108052e recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.68 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.52 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b46067108052e status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.58 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.21 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b46067108052e status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.69 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] send_started queue_id=6a75d3dc826b46067108052e recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_send to=ada@acme.example subject=Flutter idea for Acme
+2026-08-07 18:17:24 [ERROR] [EMAIL] send_failed queue_id=6a75d3dc826b46067108052e reason=smtp failure
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.53 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.11 success=true
+2026-08-07 18:17:24 [INFO] email_failed id=6a75d3dc826b46067108052e status=FAILED
+2026-08-07 18:17:24 [WARNING] email_failed id=6a75d3dc826b46067108052e retry_count=1 error=smtp failure
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.77 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.66 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.70 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b46067108052f company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b46067108052f recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.89 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080530 company_id=company-2 contact_id=contact-2 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080530 recipient=grace@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.69 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.18 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b460671080530 status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.19 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] batch_complete attempted=0 sent=0 failed=0 skipped=0
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.57 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.60 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.71 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080531 company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080531 recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.53 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.32 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b460671080531 status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.81 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.77 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b460671080531 status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.36 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] send_started queue_id=6a75d3dc826b460671080531 recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] dry_run to=ada@acme.example subject=Flutter idea for Acme body_length=89
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.99 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.49 success=true
+2026-08-07 18:17:24 [INFO] email_sent id=6a75d3dc826b460671080531 status=SENT
+2026-08-07 18:17:24 [INFO] [EMAIL] sent queue_id=6a75d3dc826b460671080531 recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] batch_complete attempted=1 sent=1 failed=0 skipped=0
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.18 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.11 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.14 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.25 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.19 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.18 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.21 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.19 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.69 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080532 company_id=c1 contact_id=t1 status=PENDING
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.76 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080533 company_id=c2 contact_id=t2 status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.54 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.36 success=true
+2026-08-07 18:17:24 [INFO] repository=CompanyRepository collection=companies operation=create duration_ms=0.71 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.86 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080535 company_id=6a75d3dc826b460671080534 contact_id=ada@acme.example status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080535 recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.38 success=true
+2026-08-07 18:17:24 [INFO] repository=CompanyRepository collection=companies operation=find_by_id duration_ms=1.03 success=true
+2026-08-07 18:17:24 [INFO] method=GET path=/api/v1/email-queue/pending status_code=200 duration_ms=5.94 request_id=12221192-9215-4c72-a85d-8ba7e002953f
+2026-08-07 18:17:24 [INFO] HTTP Request: GET http://test/api/v1/email-queue/pending "HTTP/1.1 200 OK"
+2026-08-07 18:17:24 [INFO] repository=CompanyRepository collection=companies operation=create duration_ms=0.54 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.70 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080537 company_id=6a75d3dc826b460671080536 contact_id=ada@acme.example status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080537 recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=1.17 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.84 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b460671080537 status=APPROVED
+2026-08-07 18:17:24 [INFO] method=POST path=/api/v1/email-queue/6a75d3dc826b460671080537/approve status_code=200 duration_ms=9.05 request_id=75118ba9-4da0-4843-b768-5916f3be2051
+2026-08-07 18:17:24 [INFO] HTTP Request: POST http://test/api/v1/email-queue/6a75d3dc826b460671080537/approve "HTTP/1.1 200 OK"
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.35 success=true
+2026-08-07 18:17:24 [INFO] repository=CompanyRepository collection=companies operation=find_by_id duration_ms=0.53 success=true
+2026-08-07 18:17:24 [INFO] method=GET path=/api/v1/email-queue/pending status_code=200 duration_ms=3.53 request_id=43ce0c52-4102-4884-a470-52e1ac9524cf
+2026-08-07 18:17:24 [INFO] HTTP Request: GET http://test/api/v1/email-queue/pending "HTTP/1.1 200 OK"
+2026-08-07 18:17:24 [INFO] repository=CompanyRepository collection=companies operation=create duration_ms=0.80 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=1.37 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080539 company_id=6a75d3dc826b460671080538 contact_id=ada@acme.example status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080539 recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.59 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.25 success=true
+2026-08-07 18:17:24 [INFO] email_skipped id=6a75d3dc826b460671080539 status=SKIPPED
+2026-08-07 18:17:24 [INFO] method=POST path=/api/v1/email-queue/6a75d3dc826b460671080539/skip status_code=200 duration_ms=5.33 request_id=67d87887-0033-47a7-b8ce-6878bbc86d47
+2026-08-07 18:17:24 [INFO] HTTP Request: POST http://test/api/v1/email-queue/6a75d3dc826b460671080539/skip "HTTP/1.1 200 OK"
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.19 success=true
+2026-08-07 18:17:24 [INFO] method=GET path=/api/v1/email-queue/pending status_code=200 duration_ms=1.76 request_id=9aa8f74c-3b59-4d27-91d3-fade2af5fe7c
+2026-08-07 18:17:24 [INFO] HTTP Request: GET http://test/api/v1/email-queue/pending "HTTP/1.1 200 OK"
+2026-08-07 18:17:24 [INFO] repository=CompanyRepository collection=companies operation=create duration_ms=0.93 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.92 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b46067108053b company_id=6a75d3dc826b46067108053a contact_id=ada@acme.example status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b46067108053b recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.69 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.41 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b46067108053b status=APPROVED
+2026-08-07 18:17:24 [INFO] method=POST path=/api/v1/email-queue/6a75d3dc826b46067108053b/approve status_code=200 duration_ms=5.90 request_id=4cc20919-d3db-4779-aeb6-f7a558769ce2
+2026-08-07 18:17:24 [INFO] HTTP Request: POST http://test/api/v1/email-queue/6a75d3dc826b46067108053b/approve "HTTP/1.1 200 OK"
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.64 success=true
+2026-08-07 18:17:24 [INFO] method=POST path=/api/v1/email-queue/6a75d3dc826b46067108053b/approve status_code=404 duration_ms=2.41 request_id=896bc610-d9d2-4ba1-806c-70895d77fea9
+2026-08-07 18:17:24 [INFO] HTTP Request: POST http://test/api/v1/email-queue/6a75d3dc826b46067108053b/approve "HTTP/1.1 404 Not Found"
+2026-08-07 18:17:24 [INFO] repository=CompanyRepository collection=companies operation=create duration_ms=0.77 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.77 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b46067108053d company_id=6a75d3dc826b46067108053c contact_id=ada@acme.example status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b46067108053d recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.24 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] batch_complete attempted=0 sent=0 failed=0 skipped=0
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.13 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.13 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.13 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.14 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.18 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.14 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.14 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.14 success=true
+2026-08-07 18:17:24 [INFO] repository=CompanyRepository collection=companies operation=create duration_ms=0.55 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.70 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b46067108053f company_id=6a75d3dc826b46067108053e contact_id=ada@acme.example status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b46067108053f recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.65 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.14 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b46067108053f status=APPROVED
+2026-08-07 18:17:24 [INFO] method=POST path=/api/v1/email-queue/6a75d3dc826b46067108053f/approve status_code=200 duration_ms=5.59 request_id=7bc6c518-59c2-4497-82b5-e64d6e1620b6
+2026-08-07 18:17:24 [INFO] HTTP Request: POST http://test/api/v1/email-queue/6a75d3dc826b46067108053f/approve "HTTP/1.1 200 OK"
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.73 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.46 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b46067108053f status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] method=POST path=/api/v1/email-queue/6a75d3dc826b46067108053f/ready-to-send status_code=200 duration_ms=6.38 request_id=f04a69e8-50dc-40ce-b029-a8c7a50f4ab6
+2026-08-07 18:17:24 [INFO] HTTP Request: POST http://test/api/v1/email-queue/6a75d3dc826b46067108053f/ready-to-send "HTTP/1.1 200 OK"
+2026-08-07 18:17:24 [INFO] repository=CompanyRepository collection=companies operation=create duration_ms=0.49 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.55 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080541 company_id=6a75d3dc826b460671080540 contact_id=ada@acme.example status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080541 recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.94 success=true
+2026-08-07 18:17:24 [INFO] method=POST path=/api/v1/email-queue/6a75d3dc826b460671080541/send status_code=409 duration_ms=2.98 request_id=dcd51f44-c12c-424d-9ed3-c8b9857008d2
+2026-08-07 18:17:24 [INFO] HTTP Request: POST http://test/api/v1/email-queue/6a75d3dc826b460671080541/send "HTTP/1.1 409 Conflict"
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.50 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] send_started queue_id=6a75d3dc826b46067108053f recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] dry_run to=ada@acme.example subject=Hello Acme body_length=89
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.65 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.16 success=true
+2026-08-07 18:17:24 [INFO] email_sent id=6a75d3dc826b46067108053f status=SENT
+2026-08-07 18:17:24 [INFO] [EMAIL] sent queue_id=6a75d3dc826b46067108053f recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] method=POST path=/api/v1/email-queue/6a75d3dc826b46067108053f/send status_code=200 duration_ms=8.84 request_id=b382db26-4fdd-450c-95fb-6933e969ee64
+2026-08-07 18:17:24 [INFO] HTTP Request: POST http://test/api/v1/email-queue/6a75d3dc826b46067108053f/send "HTTP/1.1 200 OK"
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.56 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080542 company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080542 recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.61 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.06 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b460671080542 status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.63 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.14 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b460671080542 status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=1.12 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] send_started queue_id=6a75d3dc826b460671080542 recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_send to=ada@acme.example subject=Flutter idea for Acme
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_delivered to=ada@acme.example
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.65 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.04 success=true
+2026-08-07 18:17:24 [INFO] email_sent id=6a75d3dc826b460671080542 status=SENT
+2026-08-07 18:17:24 [INFO] [EMAIL] sent queue_id=6a75d3dc826b460671080542 recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.48 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.51 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.53 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080543 company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080543 recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.50 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.19 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b460671080543 status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.56 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.45 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b460671080543 status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.52 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] send_started queue_id=6a75d3dc826b460671080543 recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_send to=ada@acme.example subject=Flutter idea for Acme
+2026-08-07 18:17:24 [ERROR] [EMAIL] send_failed queue_id=6a75d3dc826b460671080543 reason=smtp boom
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.62 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.42 success=true
+2026-08-07 18:17:24 [INFO] email_failed id=6a75d3dc826b460671080543 status=FAILED
+2026-08-07 18:17:24 [WARNING] email_failed id=6a75d3dc826b460671080543 retry_count=1 error=smtp boom
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.60 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.81 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080544 company_id=c1 contact_id=t1 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080544 recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.96 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080545 company_id=c2 contact_id=t2 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080545 recipient=grace@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.55 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.22 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b460671080545 status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.73 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.57 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.61 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080546 company_id=c3 contact_id=t3 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080546 recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.61 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.76 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b460671080546 status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.66 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.71 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b460671080546 status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.65 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] send_started queue_id=6a75d3dc826b460671080546 recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_send to=ada@acme.example subject=Flutter idea for Acme
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_delivered to=ada@acme.example
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.81 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.86 success=true
+2026-08-07 18:17:24 [INFO] email_sent id=6a75d3dc826b460671080546 status=SENT
+2026-08-07 18:17:24 [INFO] [EMAIL] sent queue_id=6a75d3dc826b460671080546 recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.67 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.64 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080547 company_id=c4 contact_id=t4 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080547 recipient=f@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.53 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.23 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b460671080547 status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.62 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.15 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b460671080547 status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.58 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] send_started queue_id=6a75d3dc826b460671080547 recipient=f@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_send to=f@acme.example subject=Flutter idea for Acme
+2026-08-07 18:17:24 [ERROR] [EMAIL] send_failed queue_id=6a75d3dc826b460671080547 reason=nope
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.54 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.22 success=true
+2026-08-07 18:17:24 [INFO] email_failed id=6a75d3dc826b460671080547 status=FAILED
+2026-08-07 18:17:24 [WARNING] email_failed id=6a75d3dc826b460671080547 retry_count=1 error=nope
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.54 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.72 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080548 company_id=a contact_id=a status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080548 recipient=good1@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.55 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.20 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b460671080548 status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.71 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.38 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b460671080548 status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.61 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b460671080549 company_id=b contact_id=b status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b460671080549 recipient=bad@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.61 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.53 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b460671080549 status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.54 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.20 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b460671080549 status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.80 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b46067108054a company_id=c contact_id=c status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b46067108054a recipient=good2@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.54 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.70 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b46067108054a status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.88 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.61 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b46067108054a status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.52 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] send_started queue_id=6a75d3dc826b460671080548 recipient=good1@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_send to=good1@acme.example subject=Flutter idea for Acme
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_delivered to=good1@acme.example
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.70 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.41 success=true
+2026-08-07 18:17:24 [INFO] email_sent id=6a75d3dc826b460671080548 status=SENT
+2026-08-07 18:17:24 [INFO] [EMAIL] sent queue_id=6a75d3dc826b460671080548 recipient=good1@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] send_started queue_id=6a75d3dc826b460671080549 recipient=bad@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_send to=bad@acme.example subject=Flutter idea for Acme
+2026-08-07 18:17:24 [ERROR] [EMAIL] send_failed queue_id=6a75d3dc826b460671080549 reason=recipient rejected
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.65 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.28 success=true
+2026-08-07 18:17:24 [INFO] email_failed id=6a75d3dc826b460671080549 status=FAILED
+2026-08-07 18:17:24 [WARNING] email_failed id=6a75d3dc826b460671080549 retry_count=1 error=recipient rejected
+2026-08-07 18:17:24 [INFO] [EMAIL] send_started queue_id=6a75d3dc826b46067108054a recipient=good2@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_send to=good2@acme.example subject=Flutter idea for Acme
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_delivered to=good2@acme.example
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.82 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.17 success=true
+2026-08-07 18:17:24 [INFO] email_sent id=6a75d3dc826b46067108054a status=SENT
+2026-08-07 18:17:24 [INFO] [EMAIL] sent queue_id=6a75d3dc826b46067108054a recipient=good2@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] batch_complete attempted=3 sent=2 failed=1 skipped=0
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.57 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.63 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.57 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.57 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b46067108054b company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b46067108054b recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.68 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.29 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b46067108054b status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.71 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.32 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b46067108054b status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.86 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.38 success=true
+2026-08-07 18:17:24 [ERROR] [EMAIL] send_failed queue_id=6a75d3dc826b46067108054b reason=Invalid recipient email
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.53 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.91 success=true
+2026-08-07 18:17:24 [INFO] email_failed id=6a75d3dc826b46067108054b status=FAILED
+2026-08-07 18:17:24 [WARNING] email_failed id=6a75d3dc826b46067108054b retry_count=1 error=Invalid recipient email
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.82 success=true
+2026-08-07 18:17:24 [INFO] [SCHEDULER] Starting scheduled pipeline run_id=8cb95ac8-4b74-4a9e-a111-1357b2654f6d timezone=Asia/Kolkata
+2026-08-07 18:17:24 [INFO] [SCHEDULER] Pipeline completed run_id=8cb95ac8-4b74-4a9e-a111-1357b2654f6d duration_ms=1.00 status=success queued=0
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.81 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b46067108054c company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b46067108054c recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.51 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.40 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b46067108054c status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.54 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.07 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b46067108054c status=READY_TO_SEND
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.49 success=true
+2026-08-07 18:17:24 [INFO] [EMAIL] send_started queue_id=6a75d3dc826b46067108054c recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_send to=ada@acme.example subject=Flutter idea for Acme
+2026-08-07 18:17:24 [INFO] [EMAIL] smtp_delivered to=ada@acme.example
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.65 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.11 success=true
+2026-08-07 18:17:24 [INFO] email_sent id=6a75d3dc826b46067108054c status=SENT
+2026-08-07 18:17:24 [INFO] [EMAIL] sent queue_id=6a75d3dc826b46067108054c recipient=ada@acme.example
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.88 success=true
+2026-08-07 18:17:24 [INFO] email_queued id=6a75d3dc826b46067108054d company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-07 18:17:24 [INFO] email_queue_enqueue id=6a75d3dc826b46067108054d recipient=ada@acme.example source=fallback
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.88 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.93 success=true
+2026-08-07 18:17:24 [INFO] email_approved id=6a75d3dc826b46067108054d status=APPROVED
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.74 success=true
+2026-08-07 18:17:24 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.99 success=true
+2026-08-07 18:17:24 [INFO] email_ready_to_send id=6a75d3dc826b46067108054d status=READY_TO_SEND
+2026-08-07 18:17:24 [ERROR] [EMAIL] send_failed queue_id=6a75d3dc826b46067108054d reason=boom with *** leaked
+2026-08-07 18:17:25 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=1.09 success=true
+2026-08-07 18:17:25 [INFO] email_queued id=6a75d3dd826b46067108054e company_id=c1 contact_id=t1 status=PENDING
+2026-08-07 18:17:25 [INFO] email_queue_enqueue id=6a75d3dd826b46067108054e recipient=ada@acme.example source=fallback
+2026-08-07 18:17:25 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.28 success=true
+2026-08-07 18:17:25 [INFO] [EMAIL] batch_complete attempted=0 sent=0 failed=0 skipped=0
+2026-08-07 18:17:25 [INFO] url=https://acme.example founders_found=0 empty=true confidence=0.00
+2026-08-07 18:17:25 [INFO] url=https://acme.example founders_found=1 primary=Jane Founder role=Founder email=True linkedin=True confidence=1.00
+2026-08-07 18:17:25 [INFO] url=https://acme.example founders_found=1 primary=Ada Lovelace role=CEO email=True linkedin=False confidence=0.90
+2026-08-07 18:17:25 [INFO] url=https://acme.example founders_found=1 primary=Jane Founder role=Founder email=True linkedin=True confidence=1.00
+2026-08-07 18:17:25 [INFO] url=https://acme.example founders_found=1 primary=Sam Owner role=Owner email=False linkedin=False confidence=0.75
+2026-08-07 18:17:25 [INFO] url=https://acme.example founders_found=1 primary=Chris Co role=Co-Founder email=True linkedin=False confidence=0.90
+2026-08-07 18:17:25 [INFO] url=https://acme.example founders_found=1 primary=Jane Founder role=Founder email=True linkedin=False confidence=0.90
+2026-08-07 18:17:25 [INFO] url=https://boards.greenhouse.io/acme/ jobs_found=10 flutter_jobs=1 provider=Greenhouse best_job=Senior Flutter Engineer confidence=0.96
+2026-08-07 18:17:25 [INFO] url=https://jobs.lever.co/acme/ jobs_found=10 flutter_jobs=2 provider=Lever best_job=Flutter Developer confidence=0.96
+2026-08-07 18:17:25 [INFO] url=https://apply.workable.com/acme/ jobs_found=9 flutter_jobs=0 provider=Workable best_job=Mobile Engineer (React Native) confidence=0.86
+2026-08-07 18:17:25 [INFO] url=https://acme.example/ jobs_found=2 flutter_jobs=0 provider=None best_job=Software Engineer — San Francisco confidence=0.53
+2026-08-07 18:17:25 [INFO] url=https://acme.example/ jobs_found=1 flutter_jobs=1 provider=None best_job=Senior Flutter Developer confidence=0.71
+2026-08-07 18:17:25 [INFO] url=https://acme.example/ jobs_found=1 flutter_jobs=0 provider=None best_job=Mobile Developer — iOS & Android confidence=0.69
+2026-08-07 18:17:25 [INFO] url=https://acme.example/ jobs_found=1 flutter_jobs=0 provider=None best_job=React Native Engineer confidence=0.53
+2026-08-07 18:17:25 [INFO] url=https://acme.example/ jobs_found=1 flutter_jobs=0 provider=None best_job=Frontend Engineer (React) confidence=0.53
+2026-08-07 18:17:25 [INFO] url=https://acme.example/ jobs_found=0 flutter_jobs=0 provider=None best_job=None confidence=0.00
+2026-08-07 18:17:25 [INFO] url=https://acme.example/ jobs_found=1 flutter_jobs=1 provider=None best_job=Flutter Developer confidence=0.71
+2026-08-07 18:17:25 [INFO] url=https://acme.example/ jobs_found=1 flutter_jobs=0 provider=None best_job=Software Engineer — Remote confidence=0.53
+2026-08-07 18:17:25 [INFO] url=https://acme.example/ jobs_found=1 flutter_jobs=1 provider=None best_job=Senior Flutter Developer confidence=0.71
+2026-08-07 18:17:25 [INFO] job_id=a9d20be7-9ec1-4bd6-a631-32da66fee02b job_type=test-success status=started
+2026-08-07 18:17:25 [INFO] job_id=a9d20be7-9ec1-4bd6-a631-32da66fee02b job_type=test-success success=True processed=3 failed=0 duration_ms=2.35 status=finished
+2026-08-07 18:17:25 [INFO] job_id=a1f4a8cb-902e-4be7-8505-ac267d9153a9 job_type=failing status=started
+2026-08-07 18:17:25 [ERROR] job_id=a1f4a8cb-902e-4be7-8505-ac267d9153a9 job_type=failing status=failed error=Job execution failed
+Traceback (most recent call last):
+  File "C:\Users\METALOGYC\Desktop\job-lead-finder\backend\app\jobs\base.py", line 25, in run
+    result = await self.execute(context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\METALOGYC\Desktop\job-lead-finder\backend\tests\test_job_framework.py", line 22, in execute
+    raise RuntimeError("Job execution failed")
+RuntimeError: Job execution failed
+2026-08-07 18:17:25 [ERROR] job_id=a1f4a8cb-902e-4be7-8505-ac267d9153a9 job_type=failing error=Job execution failed
+2026-08-07 18:17:25 [INFO] job_id=a1f4a8cb-902e-4be7-8505-ac267d9153a9 job_type=failing success=False processed=0 failed=1 duration_ms=1.67 status=finished
+2026-08-07 18:17:25 [INFO] job_id=8313b6fe-4fcb-44a1-824c-696d5974f534 job_type=slow status=started
+2026-08-07 18:17:25 [INFO] job_id=8313b6fe-4fcb-44a1-824c-696d5974f534 job_type=slow success=True processed=1 failed=0 duration_ms=17.42 status=finished
+2026-08-07 18:17:25 [INFO] job_id=a480ed90-df4b-4d0a-ae68-8e1cb34c0c85 job_type=runner-test status=started
+2026-08-07 18:17:25 [INFO] job_id=a480ed90-df4b-4d0a-ae68-8e1cb34c0c85 job_type=runner-test success=True processed=3 failed=0 duration_ms=1.47 status=finished
+2026-08-07 18:17:25 [INFO] job_id=8727b5ed-255c-4afd-8150-36cfcff6d125 job_type=producthunt_collect status=started
+2026-08-07 18:17:25 [INFO] job_id=8727b5ed-255c-4afd-8150-36cfcff6d125 job_type=producthunt_collect success=True processed=0 failed=0 duration_ms=2.51 status=finished
+2026-08-07 18:17:25 [INFO] [PIPELINE] Starting lead generation run limit=2 persist=True generate_emails=True enqueue_emails=True
+2026-08-07 18:17:25 [INFO] [PIPELINE] Discovered companies count=2
+2026-08-07 18:17:25 [INFO] [PIPELINE] Processing company=Company 1 website=https://company1.example
+2026-08-07 18:17:25 [INFO] [QUALIFICATION] company=Company 1 score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-07 18:17:25 [INFO] [FLUTTER] company=Company 1 evidence=true
+2026-08-07 18:17:25 [INFO] [PERSONALIZATION] company=Company 1 completed
+2026-08-07 18:17:25 [INFO] [AI] company=Company 1 generation_started
+2026-08-07 18:17:25 [INFO] [AI] company=Company 1 source=fallback
+2026-08-07 18:17:25 [INFO] [QUEUE] company=Company 1 status=PENDING queue_id=queue-1
+2026-08-07 18:17:25 [INFO] [PIPELINE] company=Company 1 completed success=true duration_ms=13.63
+2026-08-07 18:17:25 [INFO] [PIPELINE] Processing company=Company 2 website=https://company2.example
+2026-08-07 18:17:25 [INFO] [QUALIFICATION] company=Company 2 score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-07 18:17:25 [INFO] [FLUTTER] company=Company 2 evidence=true
+2026-08-07 18:17:25 [INFO] [PERSONALIZATION] company=Company 2 completed
+2026-08-07 18:17:25 [INFO] [AI] company=Company 2 generation_started
+2026-08-07 18:17:25 [INFO] [AI] company=Company 2 source=fallback
+2026-08-07 18:17:25 [INFO] [QUEUE] company=Company 2 status=PENDING queue_id=queue-1
+2026-08-07 18:17:25 [INFO] [PIPELINE] company=Company 2 completed success=true duration_ms=13.11
+2026-08-07 18:17:25 [INFO] [PIPELINE] Completed discovered=2 qualified=2 personalized=2 emails_generated=2 emails_queued=2 errors=0 duration_ms=34.32
+2026-08-07 18:17:25 [INFO] [PIPELINE] Starting lead generation run limit=1 persist=True generate_emails=True enqueue_emails=True
+2026-08-07 18:17:25 [INFO] [PIPELINE] Discovered companies count=1
+2026-08-07 18:17:25 [INFO] [PIPELINE] Processing company=Company 1 website=https://company1.example
+2026-08-07 18:17:25 [INFO] [QUALIFICATION] company=Company 1 score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-07 18:17:25 [INFO] [FLUTTER] company=Company 1 evidence=true
+2026-08-07 18:17:25 [INFO] [PERSONALIZATION] company=Company 1 completed
+2026-08-07 18:17:25 [INFO] [AI] company=Company 1 generation_started
+2026-08-07 18:17:25 [INFO] [AI] company=Company 1 source=fallback
+2026-08-07 18:17:25 [INFO] [QUEUE] company=Company 1 status=PENDING queue_id=queue-1
+2026-08-07 18:17:25 [INFO] [PIPELINE] company=Company 1 completed success=true duration_ms=10.89
+2026-08-07 18:17:25 [INFO] [PIPELINE] Completed discovered=1 qualified=1 personalized=1 emails_generated=1 emails_queued=1 errors=0 duration_ms=14.67
+2026-08-07 18:17:25 [INFO] [PIPELINE] Starting lead generation run limit=None persist=True generate_emails=True enqueue_emails=True
+2026-08-07 18:17:25 [INFO] [PIPELINE] Discovered companies count=0
+2026-08-07 18:17:25 [INFO] [PIPELINE] Completed discovered=0 qualified=0 personalized=0 emails_generated=0 emails_queued=0 errors=0
+2026-08-07 18:17:25 [INFO] [PIPELINE] Starting lead generation run limit=1 persist=True generate_emails=False enqueue_emails=False
+2026-08-07 18:17:25 [INFO] [PIPELINE] Discovered companies count=1
+2026-08-07 18:17:25 [INFO] [PIPELINE] Processing company=Company 1 website=https://company1.example
+2026-08-07 18:17:25 [INFO] [QUALIFICATION] company=Company 1 score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-07 18:17:25 [INFO] [FLUTTER] company=Company 1 evidence=true
+2026-08-07 18:17:25 [INFO] [PERSONALIZATION] company=Company 1 completed
+2026-08-07 18:17:25 [INFO] [PIPELINE] company=Company 1 completed success=true duration_ms=7.30
+2026-08-07 18:17:25 [INFO] [PIPELINE] Completed discovered=1 qualified=1 personalized=1 emails_generated=0 emails_queued=0 errors=0 duration_ms=12.51
+2026-08-07 18:17:25 [INFO] [PIPELINE] Starting lead generation run limit=1 persist=True generate_emails=True enqueue_emails=False
+2026-08-07 18:17:25 [INFO] [PIPELINE] Discovered companies count=1
+2026-08-07 18:17:25 [INFO] [PIPELINE] Processing company=Company 1 website=https://company1.example
+2026-08-07 18:17:25 [INFO] [QUALIFICATION] company=Company 1 score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-07 18:17:25 [INFO] [FLUTTER] company=Company 1 evidence=true
+2026-08-07 18:17:25 [INFO] [PERSONALIZATION] company=Company 1 completed
+2026-08-07 18:17:25 [INFO] [AI] company=Company 1 generation_started
+2026-08-07 18:17:25 [INFO] [AI] company=Company 1 source=fallback
+2026-08-07 18:17:25 [INFO] [PIPELINE] company=Company 1 completed success=true duration_ms=9.84
+2026-08-07 18:17:25 [INFO] [PIPELINE] Completed discovered=1 qualified=1 personalized=1 emails_generated=1 emails_queued=0 errors=0 duration_ms=13.51
+2026-08-07 18:17:25 [INFO] [PIPELINE] Starting lead generation run limit=1 persist=False generate_emails=True enqueue_emails=True
+2026-08-07 18:17:25 [INFO] [PIPELINE] Discovered companies count=1
+2026-08-07 18:17:25 [INFO] [PIPELINE] Processing company=Company 1 website=https://company1.example
+2026-08-07 18:17:25 [INFO] [QUALIFICATION] company=Company 1 score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-07 18:17:25 [INFO] [FLUTTER] company=Company 1 evidence=true
+2026-08-07 18:17:25 [INFO] [PERSONALIZATION] company=Company 1 completed
+2026-08-07 18:17:25 [INFO] [AI] company=Company 1 generation_started
+2026-08-07 18:17:25 [INFO] [AI] company=Company 1 source=fallback
+2026-08-07 18:17:25 [INFO] [QUEUE] company=Company 1 status=PENDING queue_id=queue-1
+2026-08-07 18:17:25 [INFO] [PIPELINE] company=Company 1 completed success=true duration_ms=9.93
+2026-08-07 18:17:25 [INFO] [PIPELINE] Completed discovered=1 qualified=1 personalized=1 emails_generated=1 emails_queued=1 errors=0 duration_ms=14.49
+2026-08-07 18:17:25 [INFO] [PIPELINE] Starting lead generation run limit=1 persist=True generate_emails=False enqueue_emails=False
+2026-08-07 18:17:25 [INFO] [PIPELINE] Discovered companies count=1
+2026-08-07 18:17:25 [INFO] [PIPELINE] Processing company=Company 1 website=https://company1.example
+2026-08-07 18:17:25 [INFO] [QUALIFICATION] company=Company 1 score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-07 18:17:25 [ERROR] [PIPELINE] company=Company 1 persist_failed error=company persistence failed (mongodb): ServerSelectionTimeoutError: timeout
+2026-08-07 18:17:25 [INFO] [FLUTTER] company=Company 1 evidence=true
+2026-08-07 18:17:25 [INFO] [PERSONALIZATION] company=Company 1 completed
+2026-08-07 18:17:25 [INFO] [PIPELINE] company=Company 1 completed success=false duration_ms=7.70
+2026-08-07 18:17:25 [INFO] [PIPELINE] Completed discovered=1 qualified=1 personalized=1 emails_generated=0 emails_queued=0 errors=2 duration_ms=11.87
+2026-08-07 18:17:25 [INFO] [PIPELINE] Starting lead generation run limit=1 persist=True generate_emails=False enqueue_emails=False
+2026-08-07 18:17:25 [INFO] [PIPELINE] Discovered companies count=1
+2026-08-07 18:17:25 [INFO] [PIPELINE] Processing company=Company 1 website=https://company1.example
+2026-08-07 18:17:25 [INFO] [QUALIFICATION] company=Company 1 score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-07 18:17:25 [ERROR] lead_generation_stage_failed stage=persist error=RuntimeError
+Traceback (most recent call last):
+  File "C:\Users\METALOGYC\Desktop\job-lead-finder\backend\app\lead_generation\orchestrator.py", line 329, in _run_stage
+    result = await awaitable
+             ^^^^^^^^^^^^^^^
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\unittest\mock.py", line 2240, in _execute_mock_call
+    raise effect
+RuntimeError
+2026-08-07 18:17:25 [ERROR] [PIPELINE] company=Company 1 persist_failed error=RuntimeError
+2026-08-07 18:17:25 [INFO] [FLUTTER] company=Company 1 evidence=true
+2026-08-07 18:17:25 [INFO] [PERSONALIZATION] company=Company 1 completed
+2026-08-07 18:17:25 [INFO] [PIPELINE] company=Company 1 completed success=false duration_ms=13.10
+2026-08-07 18:17:25 [INFO] [PIPELINE] Completed discovered=1 qualified=1 personalized=1 emails_generated=0 emails_queued=0 errors=2 duration_ms=18.18
+2026-08-07 18:17:25 [INFO] [PIPELINE] Starting lead generation run limit=2 persist=True generate_emails=True enqueue_emails=True
+2026-08-07 18:17:25 [INFO] [PIPELINE] Discovered companies count=2
+2026-08-07 18:17:25 [INFO] [PIPELINE] Processing company=Company 1 website=https://company1.example
+2026-08-07 18:17:25 [INFO] [QUALIFICATION] company=Company 1 score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-07 18:17:25 [INFO] [FLUTTER] company=Company 1 evidence=true
+2026-08-07 18:17:25 [INFO] [PERSONALIZATION] company=Company 1 completed
+2026-08-07 18:17:25 [INFO] [AI] company=Company 1 generation_started
+2026-08-07 18:17:25 [INFO] [AI] company=Company 1 source=fallback
+2026-08-07 18:17:25 [INFO] [QUEUE] company=Company 1 status=PENDING queue_id=queue-1
+2026-08-07 18:17:25 [INFO] [PIPELINE] company=Company 1 completed success=true duration_ms=11.72
+2026-08-07 18:17:25 [INFO] [PIPELINE] Processing company=Company 2 website=https://company2.example
+2026-08-07 18:17:25 [ERROR] lead_generation_stage_failed stage=pipeline error=RuntimeError: pipeline exploded
+Traceback (most recent call last):
+  File "C:\Users\METALOGYC\Desktop\job-lead-finder\backend\app\lead_generation\orchestrator.py", line 329, in _run_stage
+    result = await awaitable
+             ^^^^^^^^^^^^^^^
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.11_3.11.2544.0_x64__qbz5n2kfra8p0\Lib\unittest\mock.py", line 2249, in _execute_mock_call
+    raise result
+RuntimeError: pipeline exploded
+2026-08-07 18:17:25 [ERROR] [PIPELINE] company=Company 2 enrichment_failed error=RuntimeError: pipeline exploded
+2026-08-07 18:17:25 [INFO] [PIPELINE] Completed discovered=2 qualified=1 personalized=1 emails_generated=1 emails_queued=1 errors=2 duration_ms=20.30
+2026-08-07 18:17:25 [INFO] [PIPELINE] Starting lead generation run limit=1 persist=True generate_emails=True enqueue_emails=True
+2026-08-07 18:17:25 [INFO] [PIPELINE] Discovered companies count=1
+2026-08-07 18:17:25 [INFO] [PIPELINE] Processing company=Company 1 website=https://company1.example
+2026-08-07 18:17:25 [INFO] [QUALIFICATION] company=Company 1 score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-07 18:17:25 [INFO] [FLUTTER] company=Company 1 evidence=true
+2026-08-07 18:17:25 [INFO] [PERSONALIZATION] company=Company 1 completed
+2026-08-07 18:17:25 [INFO] [AI] company=Company 1 generation_started
+2026-08-07 18:17:25 [INFO] [AI] company=Company 1 source=fallback
+2026-08-07 18:17:25 [INFO] [QUEUE] company=Company 1 status=PENDING queue_id=queue-1
+2026-08-07 18:17:25 [INFO] [PIPELINE] company=Company 1 completed success=true duration_ms=9.21
+2026-08-07 18:17:25 [INFO] [PIPELINE] Completed discovered=1 qualified=1 personalized=1 emails_generated=1 emails_queued=1 errors=0 duration_ms=13.78
+2026-08-07 18:17:25 [INFO] [PIPELINE] Starting run_id=cc363efe-def3-4ab8-9dac-6c56baab6c54 service=LeadGenerationService
+2026-08-07 18:17:25 [INFO] [PIPELINE] Completed run_id=cc363efe-def3-4ab8-9dac-6c56baab6c54 success=True processed=0 queued=0 duration_ms=0.00

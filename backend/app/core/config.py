@@ -72,13 +72,30 @@ class Settings(BaseSettings):
     ollama_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
     ollama_max_tokens: int = Field(default=384, ge=1, le=4096)
 
+    # SMTP delivery (Step 40). Keep disabled until production credentials are set.
+    smtp_enabled: bool = False
     smtp_host: str = ""
-    smtp_port: int = 587
+    smtp_port: int = Field(default=587, ge=1, le=65535)
     smtp_username: str | None = None
     smtp_password: str | None = None
+    smtp_from_email: str = ""
+    smtp_from_name: str = ""
+    smtp_use_tls: bool = True
+    smtp_reply_to: str | None = None
+    smtp_timeout_seconds: float = Field(default=30.0, ge=1.0)
+    # Legacy aliases — prefer SMTP_* above. dry_run=True skips real SMTP in tests/local.
     smtp_tls: bool = True
     from_email: str = ""
     dry_run: bool = True
+
+    @property
+    def effective_smtp_from_email(self) -> str:
+        return (self.smtp_from_email or self.from_email or "").strip()
+
+    @property
+    def effective_smtp_use_tls(self) -> bool:
+        # SMTP_USE_TLS is canonical; SMTP_TLS remains a legacy alias.
+        return bool(self.smtp_use_tls and self.smtp_tls)
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

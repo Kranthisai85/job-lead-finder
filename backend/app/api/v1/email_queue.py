@@ -1,13 +1,18 @@
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 from app.core.dependencies import get_email_queue_service
 from app.core.response import success_response
 from app.email_queue.service import EmailQueueService
-from app.email_queue.types import EmailQueueItem, PendingEmailReviewList
+from app.email_queue.types import EmailQueueItem, PendingEmailReviewList, SendResult
 from app.schemas.common import APIResponse
 
 router = APIRouter(prefix="/email-queue", tags=["email-queue"])
+
+
+class SendReadyBody(BaseModel):
+    limit: int | None = Field(default=None, ge=1, le=500)
 
 
 @router.get("/pending", response_model=APIResponse[PendingEmailReviewList])
@@ -16,8 +21,21 @@ async def list_pending_emails(
 ) -> APIResponse[PendingEmailReviewList]:
     data = await service.list_pending()
     return success_response(
-        message="Pending emails retrieved successfully",
+        message="Email queue review items retrieved successfully",
         data=data.model_dump(mode="json"),
+    )
+
+
+@router.post("/send-ready", response_model=APIResponse[SendResult])
+async def send_ready_emails(
+    body: SendReadyBody | None = None,
+    service: EmailQueueService = Depends(get_email_queue_service),
+) -> APIResponse[SendResult]:
+    limit = body.limit if body is not None else None
+    result = await service.send_ready_to_send(limit=limit)
+    return success_response(
+        message="Ready-to-send emails processed",
+        data=result.model_dump(mode="json"),
     )
 
 
@@ -62,4 +80,59 @@ async def skip_email(
     return success_response(
         message="Email skipped successfully",
         data=item.model_dump(mode="json"),
+    )
+
+
+@router.post("/{item_id}/ready-to-send", response_model=APIResponse[EmailQueueItem])
+async def mark_ready_to_send(
+    item_id: str,
+    service: EmailQueueService = Depends(get_email_queue_service),
+) -> APIResponse[EmailQueueItem] | JSONResponse:
+    item = await service.mark_ready_to_send(item_id)
+    if item is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "success": False,
+                "message": "Approved queue item not found",
+                "data": None,
+                "request_id": "",
+            },
+        )
+    return success_response(
+        message="Email marked ready to send",
+        data=item.model_dump(mode="json"),
+    )
+
+
+@router.post("/{item_id}/send", response_model=APIResponse[SendResult])
+async def send_email(
+    item_id: str,
+    service: EmailQueueService = Depends(get_email_queue_service),
+) -> APIResponse[SendResult] | JSONResponse:
+    result = await service.send_one(item_id)
+    if result.skipped and result.error and "not found" in (result.error or "").lower():
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "success": False,
+                "message": result.error or "Queue item not found",
+                "data": result.model_dump(mode="json"),
+                "request_id": "",
+            },
+        )
+    if result.skipped:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "success": False,
+                "message": result.error or "Item is not READY_TO_SEND",
+                "data": result.model_dump(mode="json"),
+                "request_id": "",
+            },
+        )
+    message = "Email sent successfully" if result.success else "Email send failed"
+    return success_response(
+        message=message,
+        data=result.model_dump(mode="json"),
     )

@@ -5,8 +5,8 @@ from time import perf_counter
 from app.ai.client import OllamaClient
 from app.ai.prompts import (
     DEFAULT_EMAIL_REQUIRED_FIELDS,
-    EmailPromptContext,
     SUBJECT_ONLY_REQUIRED_FIELDS,
+    EmailPromptContext,
     build_email_prompt,
     build_followup_prompt,
     build_prompt_context,

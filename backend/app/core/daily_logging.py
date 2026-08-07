@@ -126,6 +126,16 @@ def attach_daily_run_handler(*, log_dir: str | Path | None = None) -> Path | Non
         return None
 
 
+def ensure_daily_run_handler(*, log_dir: str | Path | None = None) -> Path | None:
+    """Attach daily handler only if missing (safe during send outside pipeline)."""
+    root = logging.getLogger()
+    for handler in root.handlers:
+        if handler.get_name() == _DAILY_HANDLER_NAME:
+            base = Path(log_dir if log_dir is not None else settings.log_dir)
+            return daily_log_path(log_dir=base)
+    return attach_daily_run_handler(log_dir=log_dir)
+
+
 def detach_daily_run_handler() -> None:
     root = logging.getLogger()
     for handler in list(root.handlers):

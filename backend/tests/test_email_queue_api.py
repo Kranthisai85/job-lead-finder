@@ -28,11 +28,11 @@ async def api_client(test_db: Any) -> AsyncIterator[AsyncClient]:
     mongo_module.client = None
 
 
-async def _seed_pending_with_company() -> str:
+async def _seed_pending_with_company(*, website: str = "acme.example") -> str:
     company = await CompanyRepository().create(
         Company(
             name="Acme Labs",
-            website="acme.example",
+            website=website,
             description="SaaS product",
             source="test",
             qualification_score=72,
@@ -95,7 +95,8 @@ async def test_approve_transitions_pending_to_approved(api_client: AsyncClient) 
     assert body["data"]["approved_at"] is not None
 
     pending = await api_client.get("/api/v1/email-queue/pending")
-    assert pending.json()["data"]["total"] == 0
+    assert pending.json()["data"]["total"] == 1
+    assert pending.json()["data"]["items"][0]["status"] == "APPROVED"
 
 
 @pytest.mark.asyncio
@@ -130,3 +131,24 @@ async def test_sender_does_not_process_pending(api_client: AsyncClient) -> None:
     stats = await service.statistics()
     assert stats.pending == 1
     assert stats.sent == 0
+
+
+@pytest.mark.asyncio
+async def test_ready_to_send_and_send_endpoints(api_client: AsyncClient) -> None:
+    item_id = await _seed_pending_with_company()
+    await api_client.post(f"/api/v1/email-queue/{item_id}/approve")
+
+    ready = await api_client.post(f"/api/v1/email-queue/{item_id}/ready-to-send")
+    assert ready.status_code == 200
+    assert ready.json()["data"]["status"] == "READY_TO_SEND"
+
+    pending_id = await _seed_pending_with_company(website="pending-send.example")
+    conflict = await api_client.post(f"/api/v1/email-queue/{pending_id}/send")
+    assert conflict.status_code == 409
+
+    # Default dry_run=True marks SENT without contacting real SMTP.
+    sent = await api_client.post(f"/api/v1/email-queue/{item_id}/send")
+    assert sent.status_code == 200
+    body = sent.json()
+    assert body["data"]["success"] is True
+    assert body["data"]["status"] == "SENT"

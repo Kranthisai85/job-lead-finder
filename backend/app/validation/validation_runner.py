@@ -23,8 +23,7 @@ from app.intelligence.service import LeadIntelligenceService
 from app.mobile_detection.service import MobileAppDetectionService
 from app.opportunity_scoring.service import OpportunityScoringService
 from app.pipeline.persistence import PipelinePersistenceService
-from app.pipeline.types import CompleteLead
-from app.pipeline.types import ProcessingMetadata
+from app.pipeline.types import CompleteLead, ProcessingMetadata
 from app.pipeline.types import StartupSeed as PipelineStartupSeed
 from app.qualification.service import QualificationService
 from app.schemas.company import CompanyResponse

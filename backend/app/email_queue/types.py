@@ -53,6 +53,9 @@ class PendingEmailReviewItem(BaseModel):
     lead_score: float | None = None
     generation_source: str | None = None
     created_at: datetime
+    error_message: str | None = None
+    sent_at: datetime | None = None
+    approved_at: datetime | None = None
 
 
 class PendingEmailReviewList(BaseModel):
@@ -76,4 +79,10 @@ class SendResult(BaseModel):
     sent: int = 0
     failed: int = 0
     skipped: int = 0
+    attempted: int = 0
     errors: list[str] = Field(default_factory=list)
+    queue_id: str | None = None
+    recipient: str | None = None
+    status: EmailQueueStatus | None = None
+    success: bool | None = None
+    error: str | None = None

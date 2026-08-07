@@ -14,3 +14,20 @@ export async function skipEmail(itemId) {
   const response = await apiClient.post(`/api/v1/email-queue/${itemId}/skip`);
   return response.data;
 }
+
+export async function markReadyToSend(itemId) {
+  const response = await apiClient.post(`/api/v1/email-queue/${itemId}/ready-to-send`);
+  return response.data;
+}
+
+export async function sendEmail(itemId) {
+  const response = await apiClient.post(`/api/v1/email-queue/${itemId}/send`);
+  return response.data;
+}
+
+export async function sendReadyEmails(limit) {
+  const response = await apiClient.post("/api/v1/email-queue/send-ready", {
+    limit: limit ?? undefined
+  });
+  return response.data;
+}

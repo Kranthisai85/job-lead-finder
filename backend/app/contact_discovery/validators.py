@@ -3,8 +3,8 @@ from __future__ import annotations
 import re
 
 from app.contact_discovery.ranking import (
-    DEFAULT_CONTACT_RANKING,
     DECISION_MAKER_ROLE_NAMES,
+    DEFAULT_CONTACT_RANKING,
     FAKE_CONTACT_LABELS,
     FAKE_EMAIL_DOMAIN_LABELS,
     FAKE_EMAIL_DOMAINS,

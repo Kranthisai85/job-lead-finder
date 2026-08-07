@@ -8,11 +8,7 @@ from app.collectors.types import CompanyLead
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.source_manager.registry import SourceRegistry
-from app.source_manager.types import (
-    CollectorExecution,
-    CollectorStatistics,
-    SourceCollectionReport,
-)
+from app.source_manager.types import CollectorExecution, CollectorStatistics, SourceCollectionReport
 from app.utils.url import canonical_lead_website, website_identity
 
 

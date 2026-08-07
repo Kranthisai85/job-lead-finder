@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from time import perf_counter
-from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.collectors.types import CompanyLead

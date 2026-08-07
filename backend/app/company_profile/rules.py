@@ -2,12 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.company_profile.types import (
-    BusinessCategory,
-    PricingModel,
-    ProductType,
-    TargetAudience,
-)
+from app.company_profile.types import BusinessCategory, PricingModel, ProductType, TargetAudience
 
 
 @dataclass(frozen=True)

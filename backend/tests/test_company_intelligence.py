@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import pytest
 
+from app.collectors.types import CompanyLead
 from app.company_intelligence.extractor import (
+    BUSINESS_MODEL_RULES,
+    TARGET_CUSTOMER_RULES,
     detect_pricing_model,
     extract_competitors,
     extract_keywords,
     score_label,
-    BUSINESS_MODEL_RULES,
-    TARGET_CUSTOMER_RULES,
 )
 from app.company_intelligence.models import CompanyIntelligenceReport
 from app.company_intelligence.service import CompanyIntelligenceService
-from app.collectors.types import CompanyLead
 from app.crawler.types import WebsiteProfile
 from app.hiring_detection.types import HiringDetectionReport, HiringOpportunity
 from app.qualification.context import QualificationContext

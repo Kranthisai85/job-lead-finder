@@ -16,11 +16,7 @@ from app.contact_discovery.extractors import (
     extract_social_profiles,
     is_person_linkedin,
 )
-from app.contact_discovery.ranking import (
-    EXTRA_PAGE_PATHS,
-    EXTRA_PAGE_TIMEOUT_S,
-    MAX_EXTRA_PAGES,
-)
+from app.contact_discovery.ranking import EXTRA_PAGE_PATHS, EXTRA_PAGE_TIMEOUT_S, MAX_EXTRA_PAGES
 from app.contact_discovery.types import ContactCandidate, ContactDiscoveryReport, DiscoverySource
 from app.contact_discovery.validators import is_valid_email, normalize_email, rank_contact
 from app.core.logger import get_logger

@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import re
+
 from app.ai.types import GeneratedEmail
+from app.core.daily_logging import ensure_daily_run_handler
 from app.core.logger import get_logger
+from app.email.exceptions import SmtpError
+from app.email.smtp_client import sanitize_smtp_error_message
 from app.email_queue.approval import ApprovalService
 from app.email_queue.document import EmailQueueEntry
 from app.email_queue.queue import compose_email_body
@@ -17,6 +22,8 @@ from app.email_queue.types import (
     SendResult,
 )
 from app.repositories.company_repository import CompanyRepository
+
+_RECIPIENT_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class EmailQueueService:
@@ -69,7 +76,8 @@ class EmailQueueService:
         return self.repository.to_item(entry)
 
     async def list_pending(self) -> PendingEmailReviewList:
-        entries = await self.repository.get_pending()
+        """Dashboard review list: PENDING, APPROVED, READY_TO_SEND, FAILED."""
+        entries = await self.repository.get_review_queue()
         items: list[PendingEmailReviewItem] = []
         for entry in entries:
             company = await self.company_repository.find_by_id(entry.company_id)
@@ -101,6 +109,9 @@ class EmailQueueService:
                     lead_score=entry.lead_score,
                     generation_source=entry.generation_source,
                     created_at=entry.created_at,
+                    error_message=entry.error_message,
+                    sent_at=entry.sent_at,
+                    approved_at=entry.approved_at,
                 )
             )
         return PendingEmailReviewList(items=items, total=len(items))
@@ -134,10 +145,17 @@ class EmailQueueService:
         return self.repository.to_item(updated) if updated else None
 
     async def send_pending(self) -> SendResult:
-        """Send only READY_TO_SEND items. Never PENDING or APPROVED."""
-        targets = await self.repository.get_ready_to_send()
-        result = SendResult()
+        """Backward-compatible alias — sends ONLY READY_TO_SEND items."""
+        return await self.send_ready_to_send()
 
+    async def send_ready_to_send(self, limit: int | None = None) -> SendResult:
+        """Send READY_TO_SEND records independently. Never PENDING/APPROVED."""
+        ensure_daily_run_handler()
+        targets = await self.repository.get_ready_to_send()
+        if limit is not None:
+            targets = targets[: max(0, int(limit))]
+
+        result = SendResult(attempted=len(targets))
         for entry in targets:
             item_result = await self._send_entry(entry)
             result.sent += item_result.sent
@@ -146,7 +164,8 @@ class EmailQueueService:
             result.errors.extend(item_result.errors)
 
         self.logger.info(
-            "email_queue_send_ready sent=%d failed=%d skipped=%d",
+            "[EMAIL] batch_complete attempted=%d sent=%d failed=%d skipped=%d",
+            result.attempted,
             result.sent,
             result.failed,
             result.skipped,
@@ -154,14 +173,29 @@ class EmailQueueService:
         return result
 
     async def send_one(self, item_id: str) -> SendResult:
+        ensure_daily_run_handler()
         entry = await self.repository.find_by_id_item(item_id)
         if entry is None:
-            return SendResult(skipped=1, errors=[f"Queue item '{item_id}' not found"])
-
-        if entry.status != EmailQueueStatus.READY_TO_SEND:
             return SendResult(
                 skipped=1,
-                errors=[f"Item '{item_id}' is not sendable (status={entry.status.value})"],
+                attempted=0,
+                success=False,
+                queue_id=item_id,
+                error=f"Queue item '{item_id}' not found",
+                errors=[f"Queue item '{item_id}' not found"],
+            )
+
+        if entry.status != EmailQueueStatus.READY_TO_SEND:
+            message = f"Item '{item_id}' is not sendable (status={entry.status.value})"
+            return SendResult(
+                skipped=1,
+                attempted=0,
+                success=False,
+                queue_id=item_id,
+                recipient=entry.recipient_email,
+                status=entry.status,
+                error=message,
+                errors=[message],
             )
 
         return await self._send_entry(entry)
@@ -181,14 +215,60 @@ class EmailQueueService:
             total=total,
         )
 
+    def _validate_sendable_entry(self, entry: EmailQueueEntry) -> str | None:
+        if not entry.company_id or not entry.contact_id:
+            return "Missing company/contact association"
+        email = (entry.recipient_email or "").strip()
+        if not email:
+            return "Missing recipient email"
+        if not _RECIPIENT_EMAIL_RE.match(email):
+            return "Invalid recipient email"
+        if not (entry.subject or "").strip():
+            return "Missing email subject"
+        if not (entry.body or "").strip():
+            return "Missing email body"
+        return None
+
     async def _send_entry(self, entry: EmailQueueEntry) -> SendResult:
         item_id = str(entry.id)
+        recipient = entry.recipient_email
         if entry.status != EmailQueueStatus.READY_TO_SEND:
+            message = f"Item '{item_id}' is not READY_TO_SEND"
             return SendResult(
                 skipped=1,
-                errors=[f"Item '{item_id}' is not READY_TO_SEND"],
+                attempted=1,
+                success=False,
+                queue_id=item_id,
+                recipient=recipient,
+                status=entry.status,
+                error=message,
+                errors=[message],
             )
 
+        validation_error = self._validate_sendable_entry(entry)
+        if validation_error is not None:
+            self.logger.error(
+                "[EMAIL] send_failed queue_id=%s reason=%s",
+                item_id,
+                validation_error,
+            )
+            await self.approval.mark_failed(item_id, error=validation_error)
+            return SendResult(
+                failed=1,
+                attempted=1,
+                success=False,
+                queue_id=item_id,
+                recipient=recipient,
+                status=EmailQueueStatus.FAILED,
+                error=validation_error,
+                errors=[f"{item_id}: {validation_error}"],
+            )
+
+        self.logger.info(
+            "[EMAIL] send_started queue_id=%s recipient=%s",
+            item_id,
+            recipient,
+        )
         try:
             await self.sender.send(
                 recipient_name=entry.recipient_name,
@@ -197,11 +277,40 @@ class EmailQueueService:
                 body=entry.body,
             )
             await self.approval.mark_sent(item_id)
+            self.logger.info(
+                "[EMAIL] sent queue_id=%s recipient=%s",
+                item_id,
+                recipient,
+            )
             if entry.retry_count > 0:
                 self.logger.info(
                     "email_retry_success id=%s retry_count=%d", item_id, entry.retry_count
                 )
-            return SendResult(sent=1)
+            return SendResult(
+                sent=1,
+                attempted=1,
+                success=True,
+                queue_id=item_id,
+                recipient=recipient,
+                status=EmailQueueStatus.SENT,
+            )
         except Exception as exc:
-            await self.approval.mark_failed(item_id, error=str(exc))
-            return SendResult(failed=1, errors=[f"{item_id}: {exc}"])
+            safe_error = (
+                exc.safe_message if isinstance(exc, SmtpError) else sanitize_smtp_error_message(exc)
+            )
+            self.logger.error(
+                "[EMAIL] send_failed queue_id=%s reason=%s",
+                item_id,
+                safe_error,
+            )
+            await self.approval.mark_failed(item_id, error=safe_error)
+            return SendResult(
+                failed=1,
+                attempted=1,
+                success=False,
+                queue_id=item_id,
+                recipient=recipient,
+                status=EmailQueueStatus.FAILED,
+                error=safe_error,
+                errors=[f"{item_id}: {safe_error}"],
+            )

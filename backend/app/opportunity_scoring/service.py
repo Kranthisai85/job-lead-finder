@@ -25,7 +25,6 @@ from app.opportunity_scoring.weights import (
 from app.technology.types import TechnologyReport
 from app.utils.url import is_usable_company_website
 
-
 SignalResult = tuple[int, str, bool]  # points, message, is_warning
 SignalFn = Callable[..., SignalResult]
 

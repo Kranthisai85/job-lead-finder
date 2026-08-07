@@ -2,7 +2,13 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import Layout from "../components/Layout";
-import { approveEmail, fetchPendingEmails, skipEmail } from "../services/emailQueueService";
+import {
+  approveEmail,
+  fetchPendingEmails,
+  markReadyToSend,
+  sendEmail,
+  skipEmail
+} from "../services/emailQueueService";
 
 function StatusBadge({ status }) {
   const toneByStatus = {
@@ -27,6 +33,7 @@ function StatusBadge({ status }) {
 export default function EmailQueuePage() {
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
   const [localStatus, setLocalStatus] = useState({});
 
   const { data, isLoading, isError, error } = useQuery({
@@ -34,15 +41,20 @@ export default function EmailQueuePage() {
     queryFn: fetchPendingEmails
   });
 
+  const invalidateQueue = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["email-queue-pending"] });
+  };
+
   const approveMutation = useMutation({
     mutationFn: approveEmail,
     onSuccess: async (response, itemId) => {
       setActionError("");
+      setActionMessage("Approved — mark Ready to Send when you want delivery.");
       setLocalStatus((current) => ({
         ...current,
         [itemId]: response?.data?.status || "APPROVED"
       }));
-      await queryClient.invalidateQueries({ queryKey: ["email-queue-pending"] });
+      await invalidateQueue();
     },
     onError: (mutationError) => {
       setActionError(mutationError.response?.data?.message || "Unable to approve email.");
@@ -53,21 +65,78 @@ export default function EmailQueuePage() {
     mutationFn: skipEmail,
     onSuccess: async (response, itemId) => {
       setActionError("");
+      setActionMessage("");
       setLocalStatus((current) => ({
         ...current,
         [itemId]: response?.data?.status || "SKIPPED"
       }));
-      await queryClient.invalidateQueries({ queryKey: ["email-queue-pending"] });
+      await invalidateQueue();
     },
     onError: (mutationError) => {
       setActionError(mutationError.response?.data?.message || "Unable to skip email.");
     }
   });
 
+  const readyMutation = useMutation({
+    mutationFn: markReadyToSend,
+    onSuccess: async (response, itemId) => {
+      setActionError("");
+      setActionMessage("Marked Ready to Send — use Send to deliver via SMTP.");
+      setLocalStatus((current) => ({
+        ...current,
+        [itemId]: response?.data?.status || "READY_TO_SEND"
+      }));
+      await invalidateQueue();
+    },
+    onError: (mutationError) => {
+      setActionError(
+        mutationError.response?.data?.message || "Unable to mark ready to send."
+      );
+    }
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: sendEmail,
+    onSuccess: async (response, itemId) => {
+      setActionError("");
+      const payload = response?.data;
+      if (payload?.success) {
+        setActionMessage(`Sent to ${payload.recipient || "recipient"}.`);
+        setLocalStatus((current) => ({
+          ...current,
+          [itemId]: payload?.status || "SENT"
+        }));
+      } else {
+        setActionError(payload?.error || response?.message || "Send failed.");
+        setLocalStatus((current) => ({
+          ...current,
+          [itemId]: payload?.status || "FAILED"
+        }));
+      }
+      await invalidateQueue();
+    },
+    onError: (mutationError) => {
+      const payload = mutationError.response?.data;
+      setActionError(payload?.message || payload?.data?.error || "Unable to send email.");
+      if (payload?.data?.status) {
+        setLocalStatus((current) => ({
+          ...current,
+          [sendMutation.variables]: payload.data.status
+        }));
+      }
+    }
+  });
+
   const items = data?.data?.items ?? [];
   const busyId =
-    approveMutation.isPending || skipMutation.isPending
-      ? approveMutation.variables || skipMutation.variables
+    approveMutation.isPending ||
+    skipMutation.isPending ||
+    readyMutation.isPending ||
+    sendMutation.isPending
+      ? approveMutation.variables ||
+        skipMutation.variables ||
+        readyMutation.variables ||
+        sendMutation.variables
       : null;
 
   return (
@@ -76,7 +145,8 @@ export default function EmailQueuePage() {
         <div>
           <h2 className="text-2xl font-semibold text-white">Email Queue</h2>
           <p className="text-sm text-slate-400">
-            Review pending outbound drafts. Approve or skip before any send.
+            PENDING → Approve → APPROVED → Ready to Send → READY_TO_SEND → Send. Human
+            approval is required before SMTP delivery.
           </p>
         </div>
 
@@ -85,24 +155,29 @@ export default function EmailQueuePage() {
             {actionError}
           </div>
         ) : null}
+        {actionMessage && !actionError ? (
+          <div className="rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-200">
+            {actionMessage}
+          </div>
+        ) : null}
 
-        {isLoading ? <p className="text-sm text-slate-400">Loading pending emails...</p> : null}
+        {isLoading ? <p className="text-sm text-slate-400">Loading email queue...</p> : null}
         {isError ? (
           <p className="text-sm text-rose-300">
-            {error?.response?.data?.message || "Failed to load pending emails."}
+            {error?.response?.data?.message || "Failed to load email queue."}
           </p>
         ) : null}
 
         {!isLoading && !isError && items.length === 0 ? (
           <div className="rounded-xl border border-slate-800 bg-slate-900/60 px-6 py-10 text-center">
-            <p className="text-sm text-slate-300">No pending emails to review.</p>
+            <p className="text-sm text-slate-300">No emails awaiting review or send.</p>
           </div>
         ) : null}
 
         <div className="space-y-4">
           {items.map((item) => {
             const displayStatus = localStatus[item.id] || item.status;
-            const actionDisabled = busyId === item.id || displayStatus !== "PENDING";
+            const isBusy = busyId === item.id;
 
             return (
               <article
@@ -161,6 +236,15 @@ export default function EmailQueuePage() {
                   </div>
                 ) : null}
 
+                {item.error_message || displayStatus === "FAILED" ? (
+                  <div className="mt-4 rounded-lg border border-rose-900/60 bg-rose-950/30 px-3 py-2">
+                    <p className="text-xs uppercase tracking-wide text-rose-400">Failure reason</p>
+                    <p className="mt-1 text-sm text-rose-200">
+                      {item.error_message || "Send failed"}
+                    </p>
+                  </div>
+                ) : null}
+
                 <div className="mt-4 space-y-2">
                   <div>
                     <p className="text-xs uppercase tracking-wide text-slate-500">Subject</p>
@@ -175,22 +259,46 @@ export default function EmailQueuePage() {
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    disabled={actionDisabled}
-                    onClick={() => approveMutation.mutate(item.id)}
-                    className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    disabled={actionDisabled}
-                    onClick={() => skipMutation.mutate(item.id)}
-                    className="rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Skip
-                  </button>
+                  {displayStatus === "PENDING" ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => approveMutation.mutate(item.id)}
+                        className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => skipMutation.mutate(item.id)}
+                        className="rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Skip
+                      </button>
+                    </>
+                  ) : null}
+                  {displayStatus === "APPROVED" ? (
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => readyMutation.mutate(item.id)}
+                      className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Ready to Send
+                    </button>
+                  ) : null}
+                  {displayStatus === "READY_TO_SEND" ? (
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => sendMutation.mutate(item.id)}
+                      className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Send
+                    </button>
+                  ) : null}
                 </div>
               </article>
             );

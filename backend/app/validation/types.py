@@ -1,11 +1,11 @@
 from pydantic import BaseModel, Field
 
+from app.company_intelligence.models import CompanyIntelligenceReport
 from app.contact_discovery.types import ContactDiscoveryReport
 from app.crawler.types import WebsiteProfile
 from app.email_patterns.types import EmailPatternReport
-from app.hiring_detection.types import HiringDetectionReport
-from app.company_intelligence.models import CompanyIntelligenceReport
 from app.founder_enrichment.models import FounderEnrichmentReport
+from app.hiring_detection.types import HiringDetectionReport
 from app.intelligence.types import LeadIntelligence
 from app.mobile_detection.types import MobileAppDetectionResult
 from app.opportunity_scoring.models import OpportunityScoreReport

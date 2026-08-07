@@ -11,7 +11,6 @@ from app.collectors.types import CompanyLead
 from app.repositories.company_repository import CompanyRepository
 from app.services.company_service import CompanyService
 
-
 QUALIFYING_DESCRIPTION = (
     "A sufficiently detailed description for lead qualification scoring purposes."
 )

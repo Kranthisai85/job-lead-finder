@@ -56,6 +56,22 @@ class QueueRepository(BaseRepository[EmailQueueEntry]):
     async def get_ready_to_send(self) -> list[EmailQueueEntry]:
         return await self.find_many({"status": EmailQueueStatus.READY_TO_SEND.value})
 
+    async def get_review_queue(self) -> list[EmailQueueEntry]:
+        """Items visible on the dashboard approval/send workflow."""
+        return await self.find_many(
+            {
+                "status": {
+                    "$in": [
+                        EmailQueueStatus.PENDING.value,
+                        EmailQueueStatus.APPROVED.value,
+                        EmailQueueStatus.READY_TO_SEND.value,
+                        EmailQueueStatus.FAILED.value,
+                    ]
+                }
+            },
+            sort=[("created_at", -1)],
+        )
+
     async def get_retryable_failed(self) -> list[EmailQueueEntry]:
         return await self.find_many(
             {

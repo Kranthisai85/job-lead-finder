@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 from typing import Callable
-
 from urllib.parse import urlparse
 
 from app.qualification.context import QualificationContext
@@ -22,7 +21,6 @@ from app.utils.url import (
     is_producthunt_redirect,
     is_usable_company_website,
 )
-
 
 SignalFn = Callable[[QualificationContext, QualificationScoringConfig], tuple[int, str, bool]]
 
