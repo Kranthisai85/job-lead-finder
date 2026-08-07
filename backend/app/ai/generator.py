@@ -4,7 +4,9 @@ from time import perf_counter
 
 from app.ai.client import OllamaClient
 from app.ai.prompts import (
+    DEFAULT_EMAIL_REQUIRED_FIELDS,
     EmailPromptContext,
+    SUBJECT_ONLY_REQUIRED_FIELDS,
     build_email_prompt,
     build_followup_prompt,
     build_prompt_context,
@@ -38,6 +40,7 @@ class AIEmailGenerator:
             lead=lead,
             personalized=personalized,
             context=context,
+            required_fields=DEFAULT_EMAIL_REQUIRED_FIELDS,
         )
 
     async def generate_subject(self, lead: CompleteLead) -> GeneratedEmail:
@@ -49,6 +52,7 @@ class AIEmailGenerator:
             lead=lead,
             personalized=personalized,
             context=context,
+            required_fields=SUBJECT_ONLY_REQUIRED_FIELDS,
         )
         if email.generation_source == "fallback" and not email.subject:
             email = email.model_copy(
@@ -75,6 +79,7 @@ class AIEmailGenerator:
             lead=lead,
             personalized=personalized,
             context=context,
+            required_fields=DEFAULT_EMAIL_REQUIRED_FIELDS,
         )
 
     async def _generate_from_prompt(
@@ -84,11 +89,12 @@ class AIEmailGenerator:
         lead: CompleteLead,
         personalized: PersonalizedEmailContext,
         context: EmailPromptContext,
+        required_fields: tuple[str, ...] = DEFAULT_EMAIL_REQUIRED_FIELDS,
     ) -> GeneratedEmail:
         started = perf_counter()
         try:
             ollama_response = await self.client.generate(prompt)
-            parsed = parse_email_json(ollama_response.response)
+            parsed = parse_email_json(ollama_response.response, required_fields=required_fields)
             duration_ms = round((perf_counter() - started) * 1000, 2)
             return GeneratedEmail(
                 subject=parsed.get("subject", ""),

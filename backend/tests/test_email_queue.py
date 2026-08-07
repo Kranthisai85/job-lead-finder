@@ -67,6 +67,143 @@ async def test_enqueue_creates_pending_item(queue_db: Any) -> None:
 
 
 @pytest.mark.asyncio
+async def test_enqueue_persists_ai_email_fields_without_sending(queue_db: Any) -> None:
+    """Generated AI email is stored on the queue; SMTP/send is not invoked."""
+    generated = GeneratedEmail(
+        subject="Flutter mobile idea for FlutterPulse",
+        opening="Hi Maya,",
+        body="I noticed FlutterPulse builds analytics for Flutter teams.",
+        cta="Would you be open to a short conversation?",
+        signature="{{sender_name}}",
+        generation_source="ollama",
+        model="qwen2.5:7b",
+    )
+    sender = EmailSender(dry_run=False)
+    sender.send = AsyncMock()  # type: ignore[method-assign]
+    service = EmailQueueService(sender=sender)
+
+    item = await service.enqueue(
+        generated_email=generated,
+        company_id="company-flutterpulse",
+        contact_id="maya@flutterpulse.example",
+        recipient_name="Maya Chen",
+        recipient_email="maya@flutterpulse.example",
+        lead_score=91.0,
+    )
+
+    assert item.id
+    assert item.company_id == "company-flutterpulse"
+    assert item.contact_id == "maya@flutterpulse.example"
+    assert item.recipient_name == "Maya Chen"
+    assert item.recipient_email == "maya@flutterpulse.example"
+    assert item.subject == "Flutter mobile idea for FlutterPulse"
+    assert "Hi Maya," in item.body
+    assert "I noticed FlutterPulse builds analytics for Flutter teams." in item.body
+    assert "Would you be open to a short conversation?" in item.body
+    assert item.generation_source == "ollama"
+    assert item.status == EmailQueueStatus.PENDING
+    assert item.created_at is not None
+    assert item.sent_at is None
+    assert item.approved_at is None
+    assert item.lead_score == 91.0
+    sender.send.assert_not_awaited()
+
+    stored = await QueueRepository().find_by_id_item(item.id)
+    assert stored is not None
+    assert stored.company_id == "company-flutterpulse"
+    assert stored.contact_id == "maya@flutterpulse.example"
+    assert stored.recipient_email == "maya@flutterpulse.example"
+    assert stored.subject == item.subject
+    assert stored.body == item.body
+    assert stored.status == EmailQueueStatus.PENDING
+    assert stored.generation_source == "ollama"
+
+
+@pytest.mark.asyncio
+async def test_enqueue_fallback_email_is_also_queued(queue_db: Any) -> None:
+    sender = EmailSender()
+    sender.send = AsyncMock()  # type: ignore[method-assign]
+    service = EmailQueueService(sender=sender)
+    fallback = make_generated_email()
+    assert fallback.generation_source == "fallback"
+
+    item = await service.enqueue(
+        generated_email=fallback,
+        company_id="company-1",
+        contact_id="ada@acme.example",
+        recipient_name="Ada Lovelace",
+        recipient_email="ada@acme.example",
+    )
+
+    assert item.status == EmailQueueStatus.PENDING
+    assert item.generation_source == "fallback"
+    assert item.subject == "Flutter idea for Acme"
+    assert "Hi Ada," in item.body
+    assert "I noticed Acme uses React." in item.body
+    assert "Open to a quick call?" in item.body
+    sender.send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_enqueue_isolates_company_a_from_company_b(queue_db: Any) -> None:
+    service = EmailQueueService(sender=EmailSender(dry_run=True))
+    email_a = GeneratedEmail(
+        subject="Idea for Acme",
+        opening="Hi Ada,",
+        body="Acme React stack note.",
+        cta="Call about Acme?",
+        generation_source="ollama",
+    )
+    email_b = GeneratedEmail(
+        subject="Idea for NovaLedger",
+        opening="Hi Sam,",
+        body="NovaLedger Next.js note.",
+        cta="Call about NovaLedger?",
+        generation_source="ollama",
+    )
+
+    item_a = await service.enqueue(
+        generated_email=email_a,
+        company_id="company-acme",
+        contact_id="ada@acme.example",
+        recipient_name="Ada Lovelace",
+        recipient_email="ada@acme.example",
+    )
+    item_b = await service.enqueue(
+        generated_email=email_b,
+        company_id="company-nova",
+        contact_id="sam@novaledger.example",
+        recipient_name="Sam Ortiz",
+        recipient_email="sam@novaledger.example",
+    )
+
+    assert item_a.company_id == "company-acme"
+    assert item_a.recipient_email == "ada@acme.example"
+    assert "Acme" in item_a.subject
+    assert "Acme" in item_a.body
+    assert "NovaLedger" not in item_a.subject
+    assert "NovaLedger" not in item_a.body
+    assert "sam@novaledger.example" not in item_a.recipient_email
+    assert "Sam Ortiz" not in item_a.recipient_name
+
+    assert item_b.company_id == "company-nova"
+    assert item_b.recipient_email == "sam@novaledger.example"
+    assert "NovaLedger" in item_b.subject
+    assert "NovaLedger" in item_b.body
+    assert "Acme" not in item_b.subject
+    assert "Acme" not in item_b.body
+    assert "ada@acme.example" not in item_b.recipient_email
+    assert "Ada Lovelace" not in item_b.recipient_name
+
+    stored_a = await QueueRepository().find_by_id_item(item_a.id)
+    stored_b = await QueueRepository().find_by_id_item(item_b.id)
+    assert stored_a is not None and stored_b is not None
+    assert stored_a.company_id != stored_b.company_id
+    assert "NovaLedger" not in stored_a.body
+    assert "Acme" not in stored_b.body
+
+
+@pytest.mark.asyncio
 async def test_approval_workflow(queue_db: Any) -> None:
     service = EmailQueueService()
     item = await service.enqueue(

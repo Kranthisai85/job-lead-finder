@@ -10,6 +10,7 @@ import pytest
 from app.ai.client import OllamaClient, OllamaModelNotFoundError, format_ollama_error
 from app.ai.generator import AIEmailGenerator
 from app.ai.prompts import (
+    DEFAULT_EMAIL_REQUIRED_FIELDS,
     build_email_prompt,
     build_followup_prompt,
     build_prompt_context,
@@ -119,12 +120,136 @@ def test_prompt_building_includes_required_fields() -> None:
     prompt = build_email_prompt(context)
 
     assert "Acme" in prompt
+    assert "https://acme.example" in prompt
     assert "Developer Tools" in prompt
     assert "Project Management" in prompt
     assert "React" in prompt
     assert "Ada Lovelace" in prompt
+    assert "(founder)" in prompt
+    assert "ada@acme.example" in prompt
     assert "Lead score:" in prompt
+    assert "Flutter/Dart evidence: no" in prompt
+    assert "Do not invent" in prompt
     assert "subject" in prompt
+
+
+def test_prompt_includes_flutter_evidence_when_present() -> None:
+    lead = make_lead()
+    lead.technology_report = TechnologyReport(
+        url="https://acme.example/",
+        technologies=[Technology(name="Flutter", category="mobile", confidence=95)],
+        detected_count=1,
+    )
+    personalized = CompanyPersonalizationService().generate(lead)
+    assert personalized.is_flutter_lead is True
+    context = build_prompt_context(lead, personalized)
+    prompt = build_email_prompt(context)
+
+    assert "Flutter/Dart evidence: yes" in prompt
+    assert "Flutter-based mobile product" in prompt
+    assert "Flutter" in prompt
+
+
+def test_prompt_does_not_claim_flutter_without_evidence() -> None:
+    lead = make_lead()
+    personalized = CompanyPersonalizationService().generate(lead)
+    assert personalized.is_flutter_lead is False
+    context = build_prompt_context(lead, personalized)
+    prompt = build_email_prompt(context)
+
+    assert "Flutter/Dart evidence: no" in prompt
+    assert "Flutter-based mobile product" not in prompt
+
+
+def test_prompt_isolated_per_company_and_contact() -> None:
+    lead_a = make_lead()
+    lead_b = CompleteLead(
+        startup=StartupSeed(
+            name="BetaSoft",
+            website="https://beta.example",
+            description="Payroll automation for remote teams",
+            source="test",
+        ),
+        company_profile=CompanyProfile(
+            company_name="BetaSoft",
+            short_description="Payroll automation for remote teams",
+            business_category="HR",
+            industry="Payroll",
+            product_type="SaaS",
+            target_audience="HR Teams",
+            confidence=0.8,
+        ),
+        technology_report=TechnologyReport(
+            url="https://beta.example/",
+            technologies=[Technology(name="Vue", category="frontend", confidence=90)],
+            detected_count=1,
+        ),
+        mobile_report=MobileAppDetectionResult(has_mobile_app=False, confidence=0.1),
+        contacts=ContactDiscoveryReport(
+            url="https://beta.example/",
+            contacts=[
+                ContactCandidate(
+                    full_name="Grace Hopper",
+                    email="grace@beta.example",
+                    role="CEO",
+                    confidence=0.9,
+                )
+            ],
+            emails=["grace@beta.example"],
+            contact_count=1,
+        ),
+        processing=ProcessingMetadata(success=True),
+    )
+
+    prompt_a = build_email_prompt(
+        build_prompt_context(lead_a, CompanyPersonalizationService().generate(lead_a))
+    )
+    prompt_b = build_email_prompt(
+        build_prompt_context(lead_b, CompanyPersonalizationService().generate(lead_b))
+    )
+
+    assert "Acme" in prompt_a
+    assert "Ada Lovelace" in prompt_a
+    assert "https://acme.example" in prompt_a
+    assert "BetaSoft" not in prompt_a
+    assert "Grace Hopper" not in prompt_a
+    assert "beta.example" not in prompt_a
+
+    assert "BetaSoft" in prompt_b
+    assert "Grace Hopper" in prompt_b
+    assert "(CEO)" in prompt_b
+    assert "https://beta.example" in prompt_b
+    assert "Acme" not in prompt_b
+    assert "Ada Lovelace" not in prompt_b
+    assert "acme.example" not in prompt_b
+
+
+@pytest.mark.asyncio
+async def test_sparse_lead_does_not_crash_email_generation() -> None:
+    sparse = CompleteLead(
+        startup=StartupSeed(name="SparseCo", website="https://sparse.example", source="test"),
+        processing=ProcessingMetadata(success=True),
+    )
+    client = AsyncMock()
+    client.generate = AsyncMock(
+        return_value=ollama_json_response(
+            {
+                "subject": "Idea for SparseCo",
+                "opening": "Hi,",
+                "body": "Quick note.",
+                "cta": "Open to a call?",
+            }
+        )
+    )
+    client.model = "qwen2.5:7b"
+
+    email = await AIEmailGenerator(client=client).generate_email(sparse)
+    assert email.generation_source == "ollama"
+    assert email.subject
+    prompt = client.generate.await_args.args[0]
+    assert "SparseCo" in prompt
+    assert "https://sparse.example" in prompt
+    assert "Flutter/Dart evidence: no" in prompt
 
 
 def test_followup_prompt_includes_previous_subject() -> None:
@@ -143,6 +268,29 @@ def test_parse_email_json_from_markdown_block() -> None:
     parsed = parse_email_json(raw)
     assert parsed["subject"] == "Hi"
     assert parsed["opening"] == "Hello"
+
+
+def test_parse_email_json_rejects_missing_required_fields() -> None:
+    with pytest.raises(ValueError, match="Missing required fields"):
+        parse_email_json('{"subject": "Hi", "opening": "Hello"}')
+
+
+def test_parse_email_json_rejects_markdown_in_values() -> None:
+    raw = json.dumps(
+        {
+            "subject": "Hi",
+            "opening": "Hello",
+            "body": "```code```",
+            "cta": "Call?",
+        }
+    )
+    with pytest.raises(ValueError, match="markdown code fences"):
+        parse_email_json(raw)
+
+
+def test_parse_email_json_subject_only() -> None:
+    parsed = parse_email_json('{"subject": "Mobile idea"}', required_fields=("subject",))
+    assert parsed["subject"] == "Mobile idea"
 
 
 @pytest.mark.asyncio
@@ -168,7 +316,253 @@ async def test_successful_generation() -> None:
     assert email.subject == "Flutter for Acme"
     assert email.opening == "Hi Ada,"
     assert email.token_estimate > 0
+    assert "```" not in email.subject
+    assert "```" not in email.body
     client.generate.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_e2e_lead_personalization_ai_email_for_one_company() -> None:
+    """Production path: CompleteLead → personalization → prompt → mocked Ollama → validated email."""
+    lead = CompleteLead(
+        startup=StartupSeed(
+            name="FlutterPulse",
+            website="https://flutterpulse.example",
+            description="Analytics dashboards for product teams shipping Flutter apps.",
+            source="producthunt",
+        ),
+        website_profile=WebsiteProfile(
+            url="https://flutterpulse.example",
+            final_url="https://flutterpulse.example/",
+            title="FlutterPulse",
+            description="Analytics dashboards for product teams shipping Flutter apps.",
+            valid=True,
+            status_code=200,
+        ),
+        company_profile=CompanyProfile(
+            company_name="FlutterPulse",
+            short_description="Analytics dashboards for product teams shipping Flutter apps.",
+            business_category="Analytics",
+            industry="Product Analytics",
+            product_type="SaaS",
+            target_audience="Startups",
+            confidence=0.9,
+        ),
+        technology_report=TechnologyReport(
+            url="https://flutterpulse.example/",
+            technologies=[
+                Technology(name="Flutter", category="mobile", confidence=95),
+                Technology(name="Dart", category="language", confidence=90),
+                Technology(name="Firebase", category="backend", confidence=80),
+            ],
+            detected_count=3,
+        ),
+        mobile_report=MobileAppDetectionResult(has_mobile_app=False, confidence=0.1),
+        qualification_report=QualificationResult(
+            qualified=True,
+            score=85,
+            reasons=["website present", "Flutter mentioned"],
+        ),
+        contacts=ContactDiscoveryReport(
+            url="https://flutterpulse.example/",
+            contacts=[
+                ContactCandidate(
+                    full_name="Maya Chen",
+                    email="maya@flutterpulse.example",
+                    role="Founder",
+                    confidence=0.95,
+                )
+            ],
+            emails=["maya@flutterpulse.example"],
+            contact_count=1,
+        ),
+        processing=ProcessingMetadata(success=True),
+    )
+
+    client = AsyncMock()
+    client.generate = AsyncMock(
+        return_value=ollama_json_response(
+            {
+                "subject": "Flutter mobile idea for FlutterPulse",
+                "opening": "Hi Maya,",
+                "body": (
+                    "I noticed FlutterPulse builds analytics for Flutter teams "
+                    "and does not yet ship a native mobile app."
+                ),
+                "cta": "Would you be open to a short conversation?",
+                "signature": "{{sender_name}}",
+            }
+        )
+    )
+    client.model = "qwen2.5:7b"
+
+    # Same public entrypoint used by LeadGenerationOrchestrator.
+    service = AIEmailService(generator=AIEmailGenerator(client=client))
+    email = await service.generate(lead)
+
+    assert client.generate.await_count == 1
+    prompt = client.generate.await_args.args[0]
+
+    assert "Company: FlutterPulse" in prompt
+    assert "Website: https://flutterpulse.example" in prompt
+    assert "Analytics dashboards for product teams shipping Flutter apps." in prompt
+    assert "Maya Chen" in prompt
+    assert "(Founder)" in prompt
+    assert "maya@flutterpulse.example" in prompt
+    assert "Flutter" in prompt
+    assert "Dart" in prompt
+    assert "Firebase" in prompt
+    assert "Flutter/Dart evidence: yes" in prompt
+    assert "Flutter-based mobile product" in prompt
+    assert "couldn't find a native mobile application" in prompt
+    assert "Acme" not in prompt
+    assert "BetaSoft" not in prompt
+    assert "ada@acme.example" not in prompt
+
+    assert email.generation_source == "ollama"
+    assert email.errors == []
+    assert email.subject == "Flutter mobile idea for FlutterPulse"
+    assert email.opening == "Hi Maya,"
+    assert email.body
+    assert email.cta
+    assert email.signature == "{{sender_name}}"
+    assert "```" not in email.subject
+    assert "```" not in email.opening
+    assert "```" not in email.body
+    assert "```" not in email.cta
+    assert "BetaSoft" not in email.subject
+    assert "Acme" not in email.body
+
+
+@pytest.mark.asyncio
+async def test_e2e_ai_email_prompts_isolated_between_companies() -> None:
+    """Two sequential generations must never mix company/contact/tech into each other's prompts."""
+    lead_a = make_lead()  # Acme / Ada / React
+    lead_b = CompleteLead(
+        startup=StartupSeed(
+            name="NovaLedger",
+            website="https://novaledger.example",
+            description="Bookkeeping automation for SMBs.",
+            source="test",
+        ),
+        company_profile=CompanyProfile(
+            company_name="NovaLedger",
+            short_description="Bookkeeping automation for SMBs.",
+            business_category="Fintech",
+            industry="Accounting",
+            product_type="SaaS",
+            target_audience="SMBs",
+            confidence=0.8,
+        ),
+        technology_report=TechnologyReport(
+            url="https://novaledger.example/",
+            technologies=[Technology(name="Next.js", category="framework", confidence=90)],
+            detected_count=1,
+        ),
+        mobile_report=MobileAppDetectionResult(has_mobile_app=False, confidence=0.1),
+        contacts=ContactDiscoveryReport(
+            url="https://novaledger.example/",
+            contacts=[
+                ContactCandidate(
+                    full_name="Sam Ortiz",
+                    email="sam@novaledger.example",
+                    role="CEO",
+                    confidence=0.9,
+                )
+            ],
+            emails=["sam@novaledger.example"],
+            contact_count=1,
+        ),
+        processing=ProcessingMetadata(success=True),
+    )
+
+    prompts: list[str] = []
+
+    async def capture_generate(prompt: str) -> OllamaGenerateResponse:
+        prompts.append(prompt)
+        company = "NovaLedger" if "NovaLedger" in prompt else "Acme"
+        return ollama_json_response(
+            {
+                "subject": f"Idea for {company}",
+                "opening": "Hello,",
+                "body": f"Note about {company}.",
+                "cta": "Open to a call?",
+            }
+        )
+
+    client = AsyncMock()
+    client.generate = AsyncMock(side_effect=capture_generate)
+    client.model = "qwen2.5:7b"
+    service = AIEmailService(generator=AIEmailGenerator(client=client))
+
+    email_a = await service.generate(lead_a)
+    email_b = await service.generate(lead_b)
+
+    assert len(prompts) == 2
+    prompt_a, prompt_b = prompts
+
+    assert "Company: Acme" in prompt_a
+    assert "https://acme.example" in prompt_a
+    assert "Ada Lovelace" in prompt_a
+    assert "React" in prompt_a
+    assert "NovaLedger" not in prompt_a
+    assert "Sam Ortiz" not in prompt_a
+    assert "novaledger.example" not in prompt_a
+    assert "Next.js" not in prompt_a
+
+    assert "Company: NovaLedger" in prompt_b
+    assert "https://novaledger.example" in prompt_b
+    assert "Sam Ortiz" in prompt_b
+    assert "(CEO)" in prompt_b
+    assert "Next.js" in prompt_b
+    assert "Flutter/Dart evidence: no" in prompt_b
+    assert "Acme" not in prompt_b
+    assert "Ada Lovelace" not in prompt_b
+    assert "acme.example" not in prompt_b
+
+    assert email_a.generation_source == "ollama"
+    assert email_b.generation_source == "ollama"
+    assert "Acme" in email_a.subject
+    assert "NovaLedger" in email_b.subject
+    assert "NovaLedger" not in email_a.subject
+    assert "Acme" not in email_b.subject
+
+
+@pytest.mark.asyncio
+async def test_malformed_json_uses_fallback() -> None:
+    client = AsyncMock()
+    client.generate = AsyncMock(
+        return_value=OllamaGenerateResponse(
+            model="qwen2.5:7b",
+            response='{"subject": "Hi", "opening": "unterminated',
+            done=True,
+        )
+    )
+    client.model = "qwen2.5:7b"
+
+    email = await AIEmailGenerator(client=client).generate_email(make_lead())
+    assert email.generation_source == "fallback"
+    assert email.errors
+
+
+@pytest.mark.asyncio
+async def test_missing_required_field_uses_fallback() -> None:
+    client = AsyncMock()
+    client.generate = AsyncMock(
+        return_value=ollama_json_response(
+            {
+                "subject": "Only subject",
+                "opening": "",
+                "body": "",
+                "cta": "",
+            }
+        )
+    )
+    client.model = "qwen2.5:7b"
+
+    email = await AIEmailGenerator(client=client).generate_email(make_lead())
+    assert email.generation_source == "fallback"
+    assert any("Missing required fields" in error for error in email.errors)
 
 
 @pytest.mark.asyncio
@@ -485,3 +879,81 @@ async def test_http_404_uses_fallback_model_once() -> None:
     assert result.response == "ok"
     assert client.model == "llama3.2:3b"
     assert http_client.post.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_ollama_client_requests_json_format() -> None:
+    mock_response = MagicMock()
+    mock_response.raise_for_status = MagicMock()
+    mock_response.json.return_value = {
+        "model": "qwen2.5:7b",
+        "response": json.dumps(
+            {
+                "subject": "Hi",
+                "opening": "Hello",
+                "body": "Body",
+                "cta": "Call?",
+            }
+        ),
+        "done": True,
+    }
+
+    http_client = AsyncMock()
+    http_client.post = AsyncMock(return_value=mock_response)
+
+    client = OllamaClient(client=http_client, max_retries=0, base_url="http://ollama.local")
+    client._model_verified = True
+    await client.generate("test prompt")
+
+    payload = http_client.post.await_args.kwargs["json"]
+    assert payload["format"] == "json"
+    assert payload["options"]["temperature"] == client.temperature
+    assert payload["options"]["num_predict"] == client.max_tokens
+
+
+@pytest.mark.asyncio
+async def test_fallback_email_content_unchanged() -> None:
+    client = AsyncMock()
+    client.generate = AsyncMock(side_effect=RuntimeError("boom"))
+    client.model = "qwen2.5:7b"
+
+    lead = make_lead()
+    personalized = CompanyPersonalizationService().generate(lead)
+    email = await AIEmailGenerator(client=client).generate_email(lead)
+
+    assert email.generation_source == "fallback"
+    assert email.subject == f"Quick idea for {personalized.company_name}"
+    assert email.opening == personalized.personalized_opening
+    assert email.cta == personalized.cta_recommendation
+    assert personalized.mobile_app_opportunity in email.body
+
+
+@pytest.mark.asyncio
+async def test_real_ollama_generation_if_available() -> None:
+    from app.core.config import settings
+
+    probe_url = f"{settings.ollama_url.rstrip('/')}/api/tags"
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as probe_client:
+            response = await probe_client.get(probe_url)
+            if response.status_code != 200:
+                pytest.skip("Ollama not available locally")
+            models = response.json().get("models") or []
+            if not models:
+                pytest.skip("Ollama has no installed models")
+    except Exception:
+        pytest.skip("Ollama not available locally")
+
+    client = OllamaClient(timeout=min(settings.ollama_timeout, 90.0))
+    generator = AIEmailGenerator(client=client)
+    email = await generator.generate_email(make_lead())
+
+    assert email.generation_source == "ollama"
+    assert email.errors == []
+    assert email.subject.strip()
+    assert email.opening.strip()
+    assert email.body.strip()
+    assert email.cta.strip()
+    assert "```" not in email.subject
+    assert "```" not in email.body
+    assert email.response_time_ms <= 90_000

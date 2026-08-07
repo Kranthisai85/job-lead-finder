@@ -63,8 +63,8 @@ class Settings(BaseSettings):
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:7b"
     ollama_timeout: float = Field(default=60.0, ge=1.0)
-    ollama_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
-    ollama_max_tokens: int = Field(default=512, ge=1, le=4096)
+    ollama_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
+    ollama_max_tokens: int = Field(default=384, ge=1, le=4096)
 
     smtp_host: str = ""
     smtp_port: int = 587

@@ -65,7 +65,8 @@ class LeadGenerationOrchestrator:
         started = perf_counter()
         report = LeadGenerationReport()
         self.logger.info(
-            ("lead_generation_started limit=%s persist=%s " "generate_emails=%s enqueue_emails=%s"),
+            "[PIPELINE] Starting lead generation run limit=%s persist=%s "
+            "generate_emails=%s enqueue_emails=%s",
             limit,
             persist,
             generate_emails,
@@ -80,14 +81,22 @@ class LeadGenerationOrchestrator:
         if not collect_timing.success or collection_report is None:
             report.errors.append(collect_timing.error or "Collection failed")
             report.statistics.duration_ms = round((perf_counter() - started) * 1000, 2)
+            self.logger.error(
+                "[PIPELINE] Collection failed error=%s",
+                collect_timing.error or "Collection failed",
+            )
             return finalize_report(report)
 
         seeds = self._to_startup_seeds(collection_report, limit=limit)
         report.statistics.total_collected = len(seeds)
+        self.logger.info("[PIPELINE] Discovered companies count=%d", len(seeds))
         if not seeds:
             report.warnings.append("No startup seeds collected")
             report.statistics.duration_ms = round((perf_counter() - started) * 1000, 2)
-            self.logger.info("lead_generation_finished collected=0")
+            self.logger.info(
+                "[PIPELINE] Completed discovered=0 qualified=0 personalized=0 "
+                "emails_generated=0 emails_queued=0 errors=0"
+            )
             return finalize_report(report)
 
         for seed in seeds:
@@ -108,18 +117,20 @@ class LeadGenerationOrchestrator:
             duration_ms=report.statistics.duration_ms,
         )
         finalized = finalize_report(report)
+        personalized = sum(
+            1
+            for item in finalized.results
+            if any(timing.stage == "personalization" and timing.success for timing in item.stage_timings)
+        )
         self.logger.info(
-            (
-                "lead_generation_finished collected=%d processed=%d persisted=%d "
-                "qualified=%d emails=%d queued=%d failed=%d duration_ms=%.2f"
-            ),
+            "[PIPELINE] Completed discovered=%d qualified=%d personalized=%d "
+            "emails_generated=%d emails_queued=%d errors=%d duration_ms=%.2f",
             finalized.statistics.total_collected,
-            finalized.statistics.processed,
-            finalized.statistics.persisted,
             finalized.statistics.qualified,
+            personalized,
             finalized.statistics.emails_generated,
             finalized.statistics.queued,
-            finalized.statistics.failed,
+            finalized.statistics.failed + len(finalized.errors),
             finalized.statistics.duration_ms,
         )
         return finalized
@@ -135,7 +146,7 @@ class LeadGenerationOrchestrator:
         started = perf_counter()
         result = LeadGenerationResult(company_name=seed.name, website=seed.website)
         self.logger.info(
-            "lead_generation_company_started company=%s website=%s",
+            "[PIPELINE] Processing company=%s website=%s",
             seed.name,
             seed.website,
         )
@@ -149,10 +160,27 @@ class LeadGenerationOrchestrator:
             result.success = False
             result.errors.append(pipeline_timing.error or "Pipeline failed")
             result.duration_ms = round((perf_counter() - started) * 1000, 2)
+            self.logger.error(
+                "[PIPELINE] company=%s enrichment_failed error=%s",
+                seed.name,
+                pipeline_timing.error or "Pipeline failed",
+            )
             return result
 
         lead = complete_lead
         result.qualified = self._is_qualified(lead)
+        qualification_score = 0
+        if lead.qualification_report is not None:
+            qualification_score = lead.qualification_report.score
+        elif lead.lead_intelligence is not None:
+            qualification_score = lead.lead_intelligence.qualification_score
+        self.logger.info(
+            "[QUALIFICATION] company=%s qualified=%s score=%d",
+            seed.name,
+            str(result.qualified).lower(),
+            qualification_score,
+        )
+
         persistence_result: PersistenceResult | None = None
 
         if persist:
@@ -168,9 +196,8 @@ class LeadGenerationOrchestrator:
                     error_message = "persist stage raised an exception with an empty message"
                 result.errors.append(error_message)
                 self.logger.error(
-                    "lead_generation_persist_failed company=%s website=%s error=%s",
+                    "[PIPELINE] company=%s persist_failed error=%s",
                     seed.name,
-                    seed.website,
                     error_message,
                 )
             elif persistence_result.skipped:
@@ -184,13 +211,11 @@ class LeadGenerationOrchestrator:
                     else:
                         result.success = False
                         result.errors.extend(persistence_result.errors)
-                        # Reflect soft failures in stage timing for the report.
                         persist_timing.success = False
                         persist_timing.error = "; ".join(persistence_result.errors)
                         self.logger.error(
-                            ("lead_generation_persist_failed company=%s " "website=%s error=%s"),
+                            "[PIPELINE] company=%s persist_failed error=%s",
                             seed.name,
-                            seed.website,
                             persist_timing.error,
                         )
 
@@ -199,11 +224,24 @@ class LeadGenerationOrchestrator:
             lambda: self.personalization_service.generate(lead),
         )
         result.stage_timings.append(personalization_timing)
-        if not personalization_timing.success:
+        if not personalization_timing.success or personalization is None:
             result.warnings.append(personalization_timing.error or "Personalization failed")
+            self.logger.error(
+                "[PERSONALIZATION] company=%s failed error=%s",
+                seed.name,
+                personalization_timing.error or "Personalization failed",
+            )
+        else:
+            self.logger.info(
+                "[FLUTTER] company=%s evidence=%s",
+                seed.name,
+                str(bool(personalization.is_flutter_lead)).lower(),
+            )
+            self.logger.info("[PERSONALIZATION] company=%s completed", seed.name)
 
         generated_email: GeneratedEmail | None = None
         if generate_emails:
+            self.logger.info("[AI] company=%s generation_started", seed.name)
             generated_email, email_timing = await self._run_stage(
                 "ai_email",
                 self.ai_email_service.generate(lead),
@@ -212,12 +250,17 @@ class LeadGenerationOrchestrator:
             if email_timing.success and generated_email is not None:
                 result.email_generated = True
                 self.logger.info(
-                    "lead_generation_email_generated company=%s source=%s",
+                    "[AI] company=%s source=%s",
                     seed.name,
                     generated_email.generation_source,
                 )
             else:
                 result.warnings.append(email_timing.error or "Email generation failed")
+                self.logger.error(
+                    "[AI] company=%s generation_failed error=%s",
+                    seed.name,
+                    email_timing.error or "Email generation failed",
+                )
 
         if enqueue_emails and generated_email is not None:
             recipient = self._best_recipient(lead)
@@ -225,6 +268,7 @@ class LeadGenerationOrchestrator:
             contact_id = self._fallback_contact_id(lead, recipient)
             if not recipient:
                 result.warnings.append("No contact email available for queue")
+                self.logger.info("[QUEUE] company=%s skipped reason=no_recipient", seed.name)
             else:
                 queued_item: EmailQueueItem | None
                 queued_item, queue_timing = await self._run_stage(
@@ -242,21 +286,27 @@ class LeadGenerationOrchestrator:
                 if queue_timing.success and queued_item is not None:
                     result.queued = True
                     self.logger.info(
-                        "lead_generation_email_queued company=%s queue_id=%s",
+                        "[QUEUE] company=%s status=%s queue_id=%s",
                         seed.name,
+                        queued_item.status.value,
                         queued_item.id,
                     )
                 else:
                     result.warnings.append(queue_timing.error or "Enqueue failed")
+                    self.logger.error(
+                        "[QUEUE] company=%s enqueue_failed error=%s",
+                        seed.name,
+                        queue_timing.error or "Enqueue failed",
+                    )
 
         if result.errors:
             result.success = False
 
         result.duration_ms = round((perf_counter() - started) * 1000, 2)
         self.logger.info(
-            "lead_generation_company_completed company=%s success=%s duration_ms=%.2f",
+            "[PIPELINE] company=%s completed success=%s duration_ms=%.2f",
             seed.name,
-            result.success,
+            str(result.success).lower(),
             result.duration_ms,
         )
         return result

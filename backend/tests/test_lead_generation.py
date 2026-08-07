@@ -178,6 +178,25 @@ async def test_successful_run() -> None:
 
 
 @pytest.mark.asyncio
+async def test_runtime_stage_logs_are_emitted(caplog: pytest.LogCaptureFixture) -> None:
+    harness = build_orchestrator()
+    with caplog.at_level("INFO"):
+        await harness.orchestrator.run(limit=1)
+
+    messages = " ".join(record.getMessage() for record in caplog.records)
+    assert "[PIPELINE] Starting lead generation run" in messages
+    assert "[PIPELINE] Processing company=" in messages
+    assert "[QUALIFICATION] company=" in messages
+    assert "[FLUTTER] company=" in messages
+    assert "[PERSONALIZATION] company=" in messages
+    assert "completed" in messages
+    assert "[AI] company=" in messages and "generation_started" in messages
+    assert "[AI] company=" in messages and "source=" in messages
+    assert "[QUEUE] company=" in messages and "status=PENDING" in messages
+    assert "[PIPELINE] Completed discovered=" in messages
+
+
+@pytest.mark.asyncio
 async def test_empty_sources() -> None:
     collection_service = AsyncMock()
     collection_service.collect_all = AsyncMock(

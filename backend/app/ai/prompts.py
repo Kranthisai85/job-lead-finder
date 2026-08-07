@@ -13,6 +13,7 @@ from app.validation.types import compute_lead_score
 @dataclass(frozen=True)
 class EmailPromptContext:
     company_name: str
+    company_website: str
     company_summary: str
     technologies: list[str]
     industry: str | None
@@ -20,30 +21,24 @@ class EmailPromptContext:
     contacts_summary: str
     mobile_opportunity: str
     lead_score: float
+    is_flutter_lead: bool
     personalized_context: PersonalizedEmailContext
 
 
 EMAIL_JSON_SCHEMA = """
-Return ONLY valid JSON with these keys:
-{
-  "subject": "string",
-  "opening": "string",
-  "body": "string",
-  "cta": "string",
-  "signature": "{{sender_name}}"
-}
+Return ONLY a JSON object with exactly these keys (plain JSON, no markdown fences):
+{"subject":"string","opening":"string","body":"string","cta":"string","signature":"{{sender_name}}"}
+Keep each value concise. Do not include explanations or extra keys.
 """.strip()
 
 FOLLOWUP_JSON_SCHEMA = """
-Return ONLY valid JSON with these keys:
-{
-  "subject": "string",
-  "opening": "string",
-  "body": "string",
-  "cta": "string",
-  "signature": "{{sender_name}}"
-}
+Return ONLY a JSON object with exactly these keys (plain JSON, no markdown fences):
+{"subject":"string","opening":"string","body":"string","cta":"string","signature":"{{sender_name}}"}
+Keep each value concise. Do not include explanations or extra keys.
 """.strip()
+
+DEFAULT_EMAIL_REQUIRED_FIELDS: tuple[str, ...] = ("subject", "opening", "body", "cta")
+SUBJECT_ONLY_REQUIRED_FIELDS: tuple[str, ...] = ("subject",)
 
 
 def _contacts_summary(contacts: ContactDiscoveryReport | None) -> str:
@@ -85,8 +80,12 @@ def build_prompt_context(
     personalized: PersonalizedEmailContext,
 ) -> EmailPromptContext:
     profile: CompanyProfile | None = lead.company_profile
+    website = (lead.startup.website or "").strip()
+    if not website and lead.lead_intelligence is not None:
+        website = (lead.lead_intelligence.company.website or "").strip()
     return EmailPromptContext(
         company_name=personalized.company_name,
+        company_website=website,
         company_summary=personalized.company_summary,
         technologies=list(personalized.technology_names),
         industry=profile.industry if profile else None,
@@ -94,6 +93,7 @@ def build_prompt_context(
         contacts_summary=_contacts_summary(lead.contacts),
         mobile_opportunity=personalized.mobile_app_opportunity,
         lead_score=_lead_score(lead, personalized),
+        is_flutter_lead=bool(personalized.is_flutter_lead),
         personalized_context=personalized,
     )
 
@@ -102,7 +102,8 @@ def build_email_prompt(context: EmailPromptContext) -> str:
     return _format_prompt(
         task=(
             "Write a concise, professional cold outreach email for a Flutter/mobile "
-            "development agency."
+            "development agency. Use only the company facts provided below. "
+            "Do not invent contacts, technologies, websites, or Flutter/Dart evidence."
         ),
         context=context,
         schema=EMAIL_JSON_SCHEMA,
@@ -113,7 +114,7 @@ def build_subject_prompt(context: EmailPromptContext) -> str:
     return _format_prompt(
         task="Write only a compelling email subject line (max 12 words).",
         context=context,
-        schema='Return JSON: {"subject": "string"}',
+        schema='Return ONLY JSON: {"subject":"string"}',
     )
 
 
@@ -138,18 +139,22 @@ def _format_prompt(*, task: str, context: EmailPromptContext, schema: str) -> st
     technologies = ", ".join(context.technologies) if context.technologies else "Unknown"
     industry = context.industry or "Unknown"
     category = context.category or "Unknown"
+    website = context.company_website or "Unknown"
+    flutter_evidence = "yes" if context.is_flutter_lead else "no"
     personalized = context.personalized_context
 
     prompt = f"""
 {task}
 
 Company: {context.company_name}
+Website: {website}
 Company summary: {context.company_summary}
 Industry: {industry}
 Category: {category}
 Technologies: {technologies}
 Contacts: {context.contacts_summary}
 Mobile opportunity: {context.mobile_opportunity}
+Flutter/Dart evidence: {flutter_evidence}
 Lead score: {context.lead_score:.1f}
 Qualification: {personalized.qualification_summary}
 Value proposition: {personalized.suggested_value_proposition}
@@ -161,7 +166,11 @@ Personalized opening: {personalized.personalized_opening}
     return prompt
 
 
-def parse_email_json(raw: str) -> dict[str, str]:
+def parse_email_json(
+    raw: str,
+    *,
+    required_fields: tuple[str, ...] = DEFAULT_EMAIL_REQUIRED_FIELDS,
+) -> dict[str, str]:
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         lines = cleaned.splitlines()
@@ -173,4 +182,11 @@ def parse_email_json(raw: str) -> dict[str, str]:
     payload = json.loads(cleaned[start : end + 1])
     if not isinstance(payload, dict):
         raise ValueError("Model response JSON must be an object")
-    return {str(key): str(value) for key, value in payload.items()}
+    result = {str(key): str(value) for key, value in payload.items()}
+    missing = [field for field in required_fields if not result.get(field, "").strip()]
+    if missing:
+        raise ValueError(f"Missing required fields: {', '.join(missing)}")
+    for value in result.values():
+        if "```" in value:
+            raise ValueError("Model response must not contain markdown code fences")
+    return result
