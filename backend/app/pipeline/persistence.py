@@ -413,12 +413,17 @@ class PipelinePersistenceService:
         if profile and profile.headquarters:
             country = profile.headquarters
 
-        return {
+        enrichment: dict[str, Any] = {
             "tags": tags,
             "has_mobile_app": has_mobile_app,
             "is_flutter_lead": is_flutter_lead,
             "country": country,
         }
+        if lead.outbound_lead_score is not None:
+            enrichment["qualification_score"] = lead.outbound_lead_score.score
+            enrichment["qualification_status"] = lead.outbound_lead_score.status.value
+            enrichment["qualification_reasons"] = list(lead.outbound_lead_score.reasons)
+        return enrichment
 
     async def _upsert_contacts(self, lead: CompleteLead, company_id: str) -> dict[str, int]:
         stats = {"created": 0, "updated": 0, "skipped": 0, "duplicates_skipped": 0}

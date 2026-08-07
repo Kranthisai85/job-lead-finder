@@ -480,7 +480,7 @@ class QualificationScoringEngine:
             return points, f"{points} Product Hunt / platform website", True
         host = context.website_host
         if host and any(_host_is_platform(host, platform) for platform in PLATFORM_DOMAINS):
-            # Already covered by github/vercel specific signals for some hosts; still penalize PH/CF.
+            # Covered by github/vercel signals for some hosts; still penalize PH/CF.
             if _host_is_platform(host, "producthunt.com") or _host_is_platform(
                 host, "cloudflare.com"
             ):

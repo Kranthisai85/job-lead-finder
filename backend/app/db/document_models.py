@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.company_intelligence.models import CompanyIntelligenceDocument
+from app.email_queue.document import EmailQueueEntry
 from app.founder_enrichment.models import FounderProfileDocument
 from app.models.company import Company
 from app.models.contact import Contact
@@ -28,6 +29,7 @@ DOCUMENT_MODELS: list[type[Any]] = [
     OpportunityScoreDocument,
     FounderProfileDocument,
     EmailDraft,
+    EmailQueueEntry,
     ScraperJob,
 ]
 

@@ -12,6 +12,7 @@ from app.crawler.types import WebsiteProfile
 from app.email_patterns.types import EmailPattern, EmailPatternReport
 from app.exceptions import RepositoryError
 from app.intelligence.types import LeadIntelligence, LeadIntelligenceMetadata
+from app.lead_scoring.service import LeadScoringService
 from app.mobile_detection.types import MobileAppDetectionResult
 from app.pipeline.persistence import EMAIL_PATTERN_TAG_PREFIX, PipelinePersistenceService
 from app.pipeline.service import LeadPipelineService
@@ -119,7 +120,9 @@ def make_lead(
 @pytest.mark.asyncio
 async def test_persist_new_company(test_db: Any) -> None:
     service = PipelinePersistenceService()
-    result = await service.persist(make_lead())
+    lead = make_lead()
+    lead.outbound_lead_score = LeadScoringService().score(lead)
+    result = await service.persist(lead)
 
     assert result.company_created is True
     assert result.company_updated is False
@@ -132,6 +135,9 @@ async def test_persist_new_company(test_db: Any) -> None:
     assert company.website == "acme.example"
     assert company.has_mobile_app is False
     assert company.is_flutter_lead is False
+    assert company.qualification_score == lead.outbound_lead_score.score
+    assert company.qualification_status == lead.outbound_lead_score.status.value
+    assert company.qualification_reasons == list(lead.outbound_lead_score.reasons)
     assert any(tag.startswith(EMAIL_PATTERN_TAG_PREFIX) for tag in company.tags)
     assert await ContactRepository().count({"company_id": result.company_id}) == 1
 
@@ -143,7 +149,9 @@ async def test_persist_is_flutter_lead_false_without_flutter_evidence(test_db: A
     assert lead.qualification_report is not None and lead.qualification_report.qualified is True
     assert lead.mobile_report is not None and lead.mobile_report.has_mobile_app is False
     assert lead.contacts is not None and lead.contacts.contact_count > 0
-    assert all(tech.name.lower() not in {"flutter", "dart"} for tech in lead.technology_report.technologies)
+    assert all(
+        tech.name.lower() not in {"flutter", "dart"} for tech in lead.technology_report.technologies
+    )
 
     result = await PipelinePersistenceService().persist(lead)
     company = await CompanyRepository().find_by_id(result.company_id)

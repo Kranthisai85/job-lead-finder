@@ -1,0 +1,25 @@
+2026-08-07 16:59:24 [INFO] service=LeadGenerationService action=run
+2026-08-07 16:59:24 [INFO] [PIPELINE] Starting lead generation run limit=1 persist=True generate_emails=False enqueue_emails=False
+2026-08-07 16:59:24 [INFO] [PIPELINE] Discovered companies count=1
+2026-08-07 16:59:24 [INFO] [PIPELINE] Processing company=Acme CLI website=https://acme-cli.example
+2026-08-07 16:59:24 [INFO] [QUALIFICATION] company=Acme CLI score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-07 16:59:24 [INFO] repository=CompanyRepository collection=companies operation=find_one duration_ms=0.19 success=true
+2026-08-07 16:59:24 [INFO] repository=CompanyRepository collection=companies operation=find_one duration_ms=0.25 success=true
+2026-08-07 16:59:24 [INFO] repository=CompanyRepository collection=companies operation=create duration_ms=0.75 success=true
+2026-08-07 16:59:24 [INFO] repository=CompanyRepository collection=companies operation=update duration_ms=1.25 success=true
+2026-08-07 16:59:24 [INFO] repository=ContactRepository collection=contacts operation=find_one duration_ms=0.14 success=true
+2026-08-07 16:59:24 [INFO] repository=ContactRepository collection=contacts operation=find_one duration_ms=0.12 success=true
+2026-08-07 16:59:24 [INFO] repository=ContactRepository collection=contacts operation=create duration_ms=0.58 success=true
+2026-08-07 16:59:24 [INFO] persist_completed company=Acme CLI company_id=6a75c194d078a5fd463e9202 created=True updated=False contacts_created=1 contacts_updated=0 contacts_skipped=0 decision_makers_created=0 decision_makers_updated=0 founders_created=0 founders_updated=0 hiring_opportunities_created=0 hiring_opportunities_updated=0 company_intelligence_saved=False opportunity_score_saved=False email_pattern_saved=False duplicates_skipped=0 errors=0 duration_ms=7.49
+2026-08-07 16:59:24 [INFO] company=Acme CLI is_flutter_lead=False has_mobile_app=False confidence=0.95 warnings=0
+2026-08-07 16:59:24 [INFO] [FLUTTER] company=Acme CLI evidence=false
+2026-08-07 16:59:24 [INFO] [PERSONALIZATION] company=Acme CLI completed
+2026-08-07 16:59:24 [INFO] [PIPELINE] company=Acme CLI completed success=true duration_ms=11.06
+2026-08-07 16:59:24 [INFO] [PIPELINE] Completed discovered=1 qualified=1 personalized=1 emails_generated=0 emails_queued=0 errors=0 duration_ms=12.57
+2026-08-07 16:59:24 [INFO] service=LeadGenerationService action=completed success=True processed=1 queued=0 duration_ms=12.57
+2026-08-07 16:59:24 [INFO] service=LeadGenerationService action=run
+2026-08-07 16:59:24 [INFO] service=LeadGenerationService action=completed success=True processed=0 queued=0 duration_ms=1.00
+2026-08-07 16:59:24 [INFO] service=LeadGenerationService action=run
+2026-08-07 16:59:24 [INFO] service=LeadGenerationService action=completed success=True processed=0 queued=0 duration_ms=1.00
+2026-08-07 16:59:25 [INFO] service=LeadGenerationService action=run
+2026-08-07 16:59:25 [INFO] service=LeadGenerationService action=completed success=True processed=0 queued=0 duration_ms=0.00

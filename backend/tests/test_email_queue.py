@@ -226,6 +226,33 @@ async def test_approval_workflow(queue_db: Any) -> None:
 
 
 @pytest.mark.asyncio
+async def test_skip_workflow(queue_db: Any) -> None:
+    service = EmailQueueService()
+    item = await service.enqueue(
+        generated_email=make_generated_email(),
+        company_id="company-1",
+        contact_id="contact-1",
+        recipient_name="Ada Lovelace",
+        recipient_email="ada@acme.example",
+    )
+
+    skipped = await service.skip(item.id, reason="Not relevant")
+    assert skipped is not None
+    assert skipped.status == EmailQueueStatus.SKIPPED
+    assert skipped.error_message == "Not relevant"
+
+    # Already skipped — cannot approve or skip again
+    assert await service.approve(item.id) is None
+    assert await service.skip(item.id) is None
+
+    result = await service.send_pending()
+    assert result.sent == 0
+    stats = await service.statistics()
+    assert stats.skipped == 1
+    assert stats.pending == 0
+
+
+@pytest.mark.asyncio
 async def test_dry_run_send_marks_sent(queue_db: Any) -> None:
     sender = EmailSender(dry_run=True)
     service = EmailQueueService(sender=sender)
@@ -237,6 +264,10 @@ async def test_dry_run_send_marks_sent(queue_db: Any) -> None:
         recipient_email="ada@acme.example",
     )
     await service.approve(item.id)
+    # APPROVED alone is not sendable — must become READY_TO_SEND first.
+    blocked = await service.send_pending()
+    assert blocked.sent == 0
+    await service.mark_ready_to_send(item.id)
 
     result = await service.send_pending()
     assert result.sent == 1
@@ -245,6 +276,7 @@ async def test_dry_run_send_marks_sent(queue_db: Any) -> None:
     stats = await service.statistics()
     assert stats.sent == 1
     assert stats.approved == 0
+    assert stats.ready_to_send == 0
 
 
 @pytest.mark.asyncio
@@ -260,6 +292,7 @@ async def test_send_one_success(queue_db: Any) -> None:
         recipient_email="ada@acme.example",
     )
     await service.approve(item.id)
+    await service.mark_ready_to_send(item.id)
 
     result = await service.send_one(item.id)
     assert result.sent == 1
@@ -267,7 +300,7 @@ async def test_send_one_success(queue_db: Any) -> None:
 
 
 @pytest.mark.asyncio
-async def test_send_failure_and_retry(queue_db: Any) -> None:
+async def test_send_failure_marks_failed_and_blocks_pending_send(queue_db: Any) -> None:
     transport = StubTransport()
     transport.fail_next = True
     sender = EmailSender(transport=transport, dry_run=False)
@@ -280,6 +313,7 @@ async def test_send_failure_and_retry(queue_db: Any) -> None:
         recipient_email="ada@acme.example",
     )
     await service.approve(item.id)
+    await service.mark_ready_to_send(item.id)
 
     first = await service.send_one(item.id)
     assert first.failed == 1
@@ -289,39 +323,37 @@ async def test_send_failure_and_retry(queue_db: Any) -> None:
     assert failed_entry.status == EmailQueueStatus.FAILED
     assert failed_entry.retry_count == 1
 
+    # FAILED cannot transition to SENT; send_one skips non-READY_TO_SEND.
     second = await service.send_one(item.id)
-    assert second.sent == 1
-
-    sent_entry = await QueueRepository().find_by_id_item(item.id)
-    assert sent_entry is not None
-    assert sent_entry.status == EmailQueueStatus.SENT
+    assert second.skipped == 1
+    assert "not sendable" in second.errors[0].lower()
 
 
 @pytest.mark.asyncio
-async def test_max_retry_limit(queue_db: Any) -> None:
-    transport = StubTransport()
-    sender = EmailSender(transport=transport, dry_run=False)
-    sender.send = AsyncMock(side_effect=RuntimeError("smtp down"))  # type: ignore[method-assign]
-    service = EmailQueueService(sender=sender)
-    item = await service.enqueue(
+async def test_pending_and_approved_are_not_sent(queue_db: Any) -> None:
+    service = EmailQueueService(sender=EmailSender(dry_run=True))
+    pending = await service.enqueue(
         generated_email=make_generated_email(),
         company_id="company-1",
         contact_id="contact-1",
         recipient_name="Ada Lovelace",
         recipient_email="ada@acme.example",
     )
-    await service.approve(item.id)
+    approved = await service.enqueue(
+        generated_email=make_generated_email(),
+        company_id="company-2",
+        contact_id="contact-2",
+        recipient_name="Grace Hopper",
+        recipient_email="grace@acme.example",
+    )
+    await service.approve(approved.id)
 
-    for _ in range(3):
-        await service.send_one(item.id)
-
-    blocked = await service.send_one(item.id)
-    assert blocked.skipped == 1
-    assert "max retries" in blocked.errors[0].lower()
-
-    entry = await QueueRepository().find_by_id_item(item.id)
-    assert entry is not None
-    assert entry.retry_count == 3
+    result = await service.send_pending()
+    assert result.sent == 0
+    assert (await QueueRepository().find_by_id_item(pending.id)).status == EmailQueueStatus.PENDING
+    assert (
+        await QueueRepository().find_by_id_item(approved.id)
+    ).status == EmailQueueStatus.APPROVED
 
 
 @pytest.mark.asyncio
@@ -335,6 +367,7 @@ async def test_statistics(queue_db: Any) -> None:
         recipient_email="ada@acme.example",
     )
     await service.approve(item.id)
+    await service.mark_ready_to_send(item.id)
     await service.send_pending()
 
     stats = await service.statistics()

@@ -1,16 +1,30 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
+from zoneinfo import ZoneInfo
 
 import pytest
+from apscheduler.triggers.cron import CronTrigger
 
 import app.scheduler.jobs  # noqa: F401 — ensure jobs are registered
 from app.collectors.types import CompanyLead
+from app.core.config import settings
+from app.lead_generation.types import LeadGenerationReport, LeadGenerationStatistics
 from app.pipeline.types import CompleteLead, ProcessingMetadata, StartupSeed
-from app.scheduler.jobs import CleanupJob, CollectLeadsJob, ValidationJob
+from app.scheduler.jobs import (
+    DAILY_LEAD_GENERATION_JOB,
+    CleanupJob,
+    CollectLeadsJob,
+    DailyLeadGenerationJob,
+    ValidationJob,
+)
 from app.scheduler.registry import ScheduledJobRegistry
 from app.scheduler.scheduler import LeadScheduler
-from app.scheduler.service import SchedulerService
+from app.scheduler.service import (
+    SchedulerService,
+    get_scheduler_service,
+    reset_scheduler_service_for_tests,
+)
 from app.scheduler.types import ScheduledJobResult
 from app.source_manager.types import SourceCollectionReport
 
@@ -42,10 +56,28 @@ def make_collection_report(count: int = 2) -> SourceCollectionReport:
     )
 
 
+def make_pipeline_report(*, success: bool = True) -> LeadGenerationReport:
+    return LeadGenerationReport(
+        success=success,
+        statistics=LeadGenerationStatistics(
+            total_collected=1,
+            processed=1,
+            persisted=1,
+            qualified=1,
+            emails_generated=1,
+            queued=1,
+            failed=0 if success else 1,
+            duration_ms=12.5,
+        ),
+        errors=[] if success else ["boom"],
+    )
+
+
 def test_scheduled_job_registry_register_get_list() -> None:
     assert "collect_leads" in ScheduledJobRegistry.list()
     assert "validation" in ScheduledJobRegistry.list()
     assert "cleanup" in ScheduledJobRegistry.list()
+    assert DAILY_LEAD_GENERATION_JOB in ScheduledJobRegistry.list()
     assert ScheduledJobRegistry.get("collect_leads").__name__ == "RegisteredCollectLeadsJob"
 
     with pytest.raises(KeyError):
@@ -145,17 +177,25 @@ async def test_run_all_once() -> None:
     collection_service.collect_all = AsyncMock(return_value=make_collection_report(0))
     pipeline_service = AsyncMock()
     pipeline_service.process = AsyncMock(return_value=make_lead())
+    lead_generation_service = AsyncMock()
+    lead_generation_service.run = AsyncMock(return_value=make_pipeline_report())
 
     service = SchedulerService(
         scheduler=LeadScheduler(
             collection_service=collection_service,
             pipeline_service=pipeline_service,
+            lead_generation_service=lead_generation_service,
         )
     )
 
     results = await service.run_all_once()
-    assert len(results) == 3
-    assert {item.job_name for item in results} == {"collect_leads", "validation", "cleanup"}
+    assert len(results) == 4
+    assert {item.job_name for item in results} == {
+        DAILY_LEAD_GENERATION_JOB,
+        "collect_leads",
+        "validation",
+        "cleanup",
+    }
 
 
 @pytest.mark.asyncio
@@ -173,7 +213,8 @@ async def test_job_failure_does_not_stop_other_jobs() -> None:
 
 
 @pytest.mark.asyncio
-async def test_status_and_metrics() -> None:
+async def test_status_and_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "scheduler_enabled", True)
     collection_service = AsyncMock()
     collection_service.collect_all = AsyncMock(return_value=make_collection_report(1))
 
@@ -184,7 +225,7 @@ async def test_status_and_metrics() -> None:
     status = service.status()
 
     assert status.enabled is True
-    assert len(status.jobs) == 3
+    assert len(status.jobs) >= 3
     collect_metrics = next(item for item in status.jobs if item.job_name == "collect_leads")
     assert collect_metrics.success is True
     assert collect_metrics.last_execution is not None
@@ -192,8 +233,12 @@ async def test_status_and_metrics() -> None:
 
 
 @pytest.mark.asyncio
-async def test_scheduler_start_and_shutdown_with_mock_apscheduler() -> None:
+async def test_scheduler_start_and_shutdown_with_mock_apscheduler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "scheduler_enabled", True)
     mock_scheduler = MagicMock()
+    mock_scheduler.running = False
     mock_scheduler.get_jobs.return_value = []
 
     lead_scheduler = LeadScheduler(scheduler=mock_scheduler)
@@ -203,7 +248,12 @@ async def test_scheduler_start_and_shutdown_with_mock_apscheduler() -> None:
         service.start()
 
     mock_scheduler.start.assert_called_once()
-    assert mock_scheduler.add_job.call_count == 3
+    # Step 39: exactly one production daily job
+    assert mock_scheduler.add_job.call_count == 1
+    added = mock_scheduler.add_job.call_args
+    assert added.kwargs["id"] == DAILY_LEAD_GENERATION_JOB
+    trigger = added.kwargs["trigger"]
+    assert isinstance(trigger, CronTrigger)
 
     status = service.status()
     assert status.running is True
@@ -256,3 +306,168 @@ async def test_job_timeout() -> None:
 
     assert result.success is False
     assert "timed out" in result.errors[0].lower()
+
+
+# --- Step 39 focused tests ---
+
+
+def test_scheduler_disabled_does_not_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "scheduler_enabled", False)
+    mock_scheduler = MagicMock()
+    mock_scheduler.running = False
+    lead_scheduler = LeadScheduler(scheduler=mock_scheduler)
+    service = SchedulerService(scheduler=lead_scheduler)
+
+    service.start()
+
+    mock_scheduler.start.assert_not_called()
+    mock_scheduler.add_job.assert_not_called()
+    assert service.status().running is False
+
+
+def test_scheduler_enabled_registers_one_daily_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "scheduler_enabled", True)
+    mock_scheduler = MagicMock()
+    mock_scheduler.running = False
+    mock_scheduler.get_jobs.return_value = []
+    lead_scheduler = LeadScheduler(scheduler=mock_scheduler)
+    SchedulerService(scheduler=lead_scheduler).start()
+
+    assert mock_scheduler.add_job.call_count == 1
+    assert mock_scheduler.add_job.call_args.kwargs["id"] == DAILY_LEAD_GENERATION_JOB
+
+
+def test_scheduler_timezone_asia_kolkata(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "scheduler_timezone", "Asia/Kolkata")
+    monkeypatch.setattr(settings, "scheduler_enabled", True)
+    mock_scheduler = MagicMock()
+    mock_scheduler.running = False
+    mock_scheduler.get_jobs.return_value = []
+    LeadScheduler(scheduler=mock_scheduler).start()
+
+    trigger = mock_scheduler.add_job.call_args.kwargs["trigger"]
+    assert isinstance(trigger, CronTrigger)
+    assert str(trigger.timezone) == "Asia/Kolkata"
+
+
+def test_scheduler_time_is_09_00(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "scheduler_hour", 9)
+    monkeypatch.setattr(settings, "scheduler_minute", 0)
+    monkeypatch.setattr(settings, "scheduler_timezone", "Asia/Kolkata")
+    monkeypatch.setattr(settings, "scheduler_enabled", True)
+    mock_scheduler = MagicMock()
+    mock_scheduler.running = False
+    mock_scheduler.get_jobs.return_value = []
+    LeadScheduler(scheduler=mock_scheduler).start()
+
+    trigger = mock_scheduler.add_job.call_args.kwargs["trigger"]
+    expected = CronTrigger(hour=9, minute=0, timezone=ZoneInfo("Asia/Kolkata"))
+    assert isinstance(trigger, CronTrigger)
+    assert str(trigger) == str(expected)
+
+
+@pytest.mark.asyncio
+async def test_scheduled_execution_calls_pipeline_once() -> None:
+    lead_generation_service = AsyncMock()
+    lead_generation_service.run = AsyncMock(return_value=make_pipeline_report())
+    job = DailyLeadGenerationJob(lead_generation_service=lead_generation_service)
+
+    result = await job.run()
+
+    lead_generation_service.run.assert_awaited_once()
+    assert "run_id" in lead_generation_service.run.await_args.kwargs
+    assert result.success is True
+    assert result.details["run_id"]
+
+
+@pytest.mark.asyncio
+async def test_pipeline_failure_does_not_kill_scheduler() -> None:
+    lead_generation_service = AsyncMock()
+    lead_generation_service.run = AsyncMock(side_effect=RuntimeError("pipeline down"))
+    scheduler = LeadScheduler(lead_generation_service=lead_generation_service)
+
+    first = await scheduler.run_job(DAILY_LEAD_GENERATION_JOB)
+    assert first.success is False
+
+    lead_generation_service.run = AsyncMock(return_value=make_pipeline_report())
+    scheduler.lead_generation_service = lead_generation_service
+    second = await scheduler.run_job(DAILY_LEAD_GENERATION_JOB)
+    assert second.success is True
+
+
+@pytest.mark.asyncio
+async def test_scheduled_execution_never_sends_email() -> None:
+    lead_generation_service = AsyncMock()
+    lead_generation_service.run = AsyncMock(return_value=make_pipeline_report())
+    send_pending = AsyncMock()
+    send_one = AsyncMock()
+
+    with (
+        patch("app.email_queue.service.EmailQueueService.send_pending", send_pending),
+        patch("app.email_queue.service.EmailQueueService.send_one", send_one),
+    ):
+        await DailyLeadGenerationJob(lead_generation_service=lead_generation_service).run()
+
+    send_pending.assert_not_called()
+    send_one.assert_not_called()
+    lead_generation_service.run.assert_awaited_once()
+
+
+def test_duplicate_initialization_does_not_add_duplicate_jobs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "scheduler_enabled", True)
+    mock_scheduler = MagicMock()
+    mock_scheduler.running = False
+    mock_scheduler.get_jobs.return_value = []
+    lead_scheduler = LeadScheduler(scheduler=mock_scheduler)
+
+    lead_scheduler.start()
+    mock_scheduler.running = True
+    lead_scheduler.start()
+
+    assert mock_scheduler.add_job.call_count == 1
+    assert mock_scheduler.start.call_count == 1
+
+
+def test_scheduler_shutdown_releases_resources(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "scheduler_enabled", True)
+    mock_scheduler = MagicMock()
+    mock_scheduler.running = False
+    mock_scheduler.get_jobs.return_value = []
+    lead_scheduler = LeadScheduler(scheduler=mock_scheduler)
+    service = SchedulerService(scheduler=lead_scheduler)
+    service.start()
+    mock_scheduler.running = True
+    service.shutdown(wait=False)
+    mock_scheduler.shutdown.assert_called_once()
+    assert service.status().running is False
+
+
+@pytest.mark.asyncio
+async def test_run_id_is_unique_per_scheduled_execution() -> None:
+    lead_generation_service = AsyncMock()
+    lead_generation_service.run = AsyncMock(return_value=make_pipeline_report())
+    job = DailyLeadGenerationJob(lead_generation_service=lead_generation_service)
+
+    first = await job.run()
+    second = await job.run()
+
+    run_ids = [call.kwargs["run_id"] for call in lead_generation_service.run.await_args_list]
+    assert first.details["run_id"] != second.details["run_id"]
+    assert run_ids[0] != run_ids[1]
+
+
+def test_get_scheduler_service_is_singleton(monkeypatch: pytest.MonkeyPatch) -> None:
+    reset_scheduler_service_for_tests()
+    monkeypatch.setattr(settings, "scheduler_enabled", False)
+    first = get_scheduler_service()
+    second = get_scheduler_service()
+    assert first is second
+    reset_scheduler_service_for_tests()
+
+
+def test_cron_trigger_zoneinfo_matches_config() -> None:
+    tz = ZoneInfo("Asia/Kolkata")
+    trigger = CronTrigger(hour=9, minute=0, timezone=tz)
+    assert str(trigger.timezone) == "Asia/Kolkata"

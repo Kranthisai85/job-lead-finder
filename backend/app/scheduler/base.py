@@ -24,7 +24,8 @@ class ScheduledJob(ABC):
 
     @property
     def enabled(self) -> bool:
-        return settings.scheduler_enabled
+        # Individual jobs stay runnable via run_job(); SCHEDULER_ENABLED gates APScheduler.start().
+        return True
 
     @property
     def timeout_seconds(self) -> float:

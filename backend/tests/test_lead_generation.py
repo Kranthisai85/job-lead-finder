@@ -187,6 +187,9 @@ async def test_runtime_stage_logs_are_emitted(caplog: pytest.LogCaptureFixture) 
     assert "[PIPELINE] Starting lead generation run" in messages
     assert "[PIPELINE] Processing company=" in messages
     assert "[QUALIFICATION] company=" in messages
+    assert "status=" in messages
+    assert "eligible=" in messages
+    assert "reasons=" in messages
     assert "[FLUTTER] company=" in messages
     assert "[PERSONALIZATION] company=" in messages
     assert "completed" in messages

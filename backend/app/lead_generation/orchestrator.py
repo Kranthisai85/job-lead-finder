@@ -12,20 +12,15 @@ from app.core.logger import get_logger
 from app.email_queue.service import EmailQueueService
 from app.email_queue.types import EmailQueueItem
 from app.lead_generation.statistics import build_statistics, finalize_report
-from app.lead_generation.types import (
-    LeadGenerationReport,
-    LeadGenerationResult,
-    StageTiming,
-)
+from app.lead_generation.types import LeadGenerationReport, LeadGenerationResult, StageTiming
+from app.lead_scoring.service import LeadScoringService
 from app.personalization.service import CompanyPersonalizationService
-from app.personalization.types import PersonalizedEmailContext
 from app.pipeline.persistence import PipelinePersistenceService, format_exception_message
 from app.pipeline.persistence_types import PersistenceResult
 from app.pipeline.service import LeadPipelineService
 from app.pipeline.types import CompleteLead, StartupSeed
 from app.source_manager.service import SourceCollectionService
 from app.source_manager.types import SourceCollectionReport
-from app.validation.types import compute_lead_score
 
 T = TypeVar("T")
 logger = get_logger(__name__)
@@ -43,6 +38,7 @@ class LeadGenerationOrchestrator:
         personalization_service: CompanyPersonalizationService | None = None,
         ai_email_service: AIEmailService | None = None,
         email_queue_service: EmailQueueService | None = None,
+        lead_scoring_service: LeadScoringService | None = None,
     ) -> None:
         self.collection_service = collection_service or SourceCollectionService()
         self.persistence_service = persistence_service or PipelinePersistenceService()
@@ -52,6 +48,7 @@ class LeadGenerationOrchestrator:
         self.personalization_service = personalization_service or CompanyPersonalizationService()
         self.ai_email_service = ai_email_service or AIEmailService()
         self.email_queue_service = email_queue_service or EmailQueueService()
+        self.lead_scoring_service = lead_scoring_service or LeadScoringService()
         self.logger = get_logger(__name__)
 
     async def run(
@@ -120,7 +117,10 @@ class LeadGenerationOrchestrator:
         personalized = sum(
             1
             for item in finalized.results
-            if any(timing.stage == "personalization" and timing.success for timing in item.stage_timings)
+            if any(
+                timing.stage == "personalization" and timing.success
+                for timing in item.stage_timings
+            )
         )
         self.logger.info(
             "[PIPELINE] Completed discovered=%d qualified=%d personalized=%d "
@@ -168,17 +168,17 @@ class LeadGenerationOrchestrator:
             return result
 
         lead = complete_lead
-        result.qualified = self._is_qualified(lead)
-        qualification_score = 0
-        if lead.qualification_report is not None:
-            qualification_score = lead.qualification_report.score
-        elif lead.lead_intelligence is not None:
-            qualification_score = lead.lead_intelligence.qualification_score
+        outbound_score = self.lead_scoring_service.score(lead)
+        lead.outbound_lead_score = outbound_score
+        eligible = self.lead_scoring_service.is_eligible(outbound_score)
+        result.qualified = eligible
         self.logger.info(
-            "[QUALIFICATION] company=%s qualified=%s score=%d",
+            "[QUALIFICATION] company=%s score=%d status=%s eligible=%s reasons=%s",
             seed.name,
-            str(result.qualified).lower(),
-            qualification_score,
+            outbound_score.score,
+            outbound_score.status.value,
+            str(eligible).lower(),
+            "; ".join(outbound_score.reasons) if outbound_score.reasons else "none",
         )
 
         persistence_result: PersistenceResult | None = None
@@ -269,6 +269,17 @@ class LeadGenerationOrchestrator:
             if not recipient:
                 result.warnings.append("No contact email available for queue")
                 self.logger.info("[QUEUE] company=%s skipped reason=no_recipient", seed.name)
+            elif not eligible:
+                result.warnings.append(
+                    f"Lead score {outbound_score.score} below MIN_LEAD_SCORE "
+                    f"{self.lead_scoring_service.min_lead_score}"
+                )
+                self.logger.info(
+                    "[QUEUE] company=%s skipped reason=below_min_score score=%d status=%s",
+                    seed.name,
+                    outbound_score.score,
+                    outbound_score.status.value,
+                )
             else:
                 queued_item: EmailQueueItem | None
                 queued_item, queue_timing = await self._run_stage(
@@ -279,7 +290,7 @@ class LeadGenerationOrchestrator:
                         contact_id=contact_id,
                         recipient_name=recipient["name"],
                         recipient_email=recipient["email"],
-                        lead_score=self._lead_score(lead, personalization),
+                        lead_score=float(outbound_score.score),
                     ),
                 )
                 result.stage_timings.append(queue_timing)
@@ -389,14 +400,6 @@ class LeadGenerationOrchestrator:
         )
 
     @staticmethod
-    def _is_qualified(lead: CompleteLead) -> bool:
-        if lead.qualification_report is not None:
-            return lead.qualification_report.qualified
-        if lead.lead_intelligence is not None and lead.lead_intelligence.qualification is not None:
-            return lead.lead_intelligence.qualification.qualified
-        return False
-
-    @staticmethod
     def _best_recipient(lead: CompleteLead) -> dict[str, str] | None:
         if lead.lead_intelligence and lead.lead_intelligence.best_contact:
             contact = lead.lead_intelligence.best_contact
@@ -428,26 +431,3 @@ class LeadGenerationOrchestrator:
         if recipient and recipient.get("email"):
             return recipient["email"]
         return f"{lead.startup.name.lower().replace(' ', '-')}-contact"
-
-    @staticmethod
-    def _lead_score(
-        lead: CompleteLead,
-        personalization: PersonalizedEmailContext | None,
-    ) -> float:
-        qualification_score = 0
-        if lead.qualification_report is not None:
-            qualification_score = lead.qualification_report.score
-        elif lead.lead_intelligence is not None:
-            qualification_score = lead.lead_intelligence.qualification_score
-
-        contact_emails = len(lead.contacts.emails) if lead.contacts else 0
-        technology_count = len(personalization.technology_names) if personalization else 0
-        has_mobile_app = personalization.has_mobile_app if personalization else False
-        is_good_lead = personalization.is_flutter_lead if personalization else False
-        return compute_lead_score(
-            qualification_score=qualification_score,
-            contact_emails_found=contact_emails,
-            technology_count=technology_count,
-            mobile_app=has_mobile_app,
-            is_good_lead=is_good_lead,
-        )

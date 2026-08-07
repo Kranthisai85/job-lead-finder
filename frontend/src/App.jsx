@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import CompaniesPage from "./pages/CompaniesPage";
+import EmailQueuePage from "./pages/EmailQueuePage";
 import HomePage from "./pages/HomePage";
 
 export default function App() {
@@ -8,6 +9,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/companies" element={<CompaniesPage />} />
+      <Route path="/email-queue" element={<EmailQueuePage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

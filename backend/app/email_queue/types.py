@@ -9,10 +9,12 @@ from pydantic import BaseModel, Field
 class EmailQueueStatus(str, Enum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
-    SENDING = "SENDING"
+    READY_TO_SEND = "READY_TO_SEND"
+    SKIPPED = "SKIPPED"
+    SENDING = "SENDING"  # legacy; not used by Step 38 transitions
     SENT = "SENT"
     FAILED = "FAILED"
-    CANCELLED = "CANCELLED"
+    CANCELLED = "CANCELLED"  # legacy reject path
 
 
 class EmailQueueItem(BaseModel):
@@ -33,9 +35,36 @@ class EmailQueueItem(BaseModel):
     retry_count: int = 0
 
 
+class PendingEmailReviewItem(BaseModel):
+    """Queue item enriched for dashboard approval review."""
+
+    id: str
+    company_id: str
+    company_name: str | None = None
+    company_website: str | None = None
+    contact_name: str
+    contact_email: str
+    qualification_score: int | None = None
+    qualification_status: str | None = None
+    qualification_reasons: list[str] = Field(default_factory=list)
+    subject: str
+    body: str
+    status: EmailQueueStatus
+    lead_score: float | None = None
+    generation_source: str | None = None
+    created_at: datetime
+
+
+class PendingEmailReviewList(BaseModel):
+    items: list[PendingEmailReviewItem] = Field(default_factory=list)
+    total: int = 0
+
+
 class QueueStatistics(BaseModel):
     pending: int = 0
     approved: int = 0
+    ready_to_send: int = 0
+    skipped: int = 0
     sending: int = 0
     sent: int = 0
     failed: int = 0

@@ -1,0 +1,189 @@
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.service | service=LeadGenerationService action=run
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.orchestrator | [PIPELINE] Starting lead generation run limit=1 persist=True generate_emails=False enqueue_emails=False
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.orchestrator | [PIPELINE] Discovered companies count=1
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.orchestrator | [PIPELINE] Processing company=Acme CLI website=https://acme-cli.example
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.orchestrator | [QUALIFICATION] company=Acme CLI score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.19 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.25 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.75 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=update duration_ms=1.25 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=ContactRepository collection=contacts operation=find_one duration_ms=0.14 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=ContactRepository collection=contacts operation=find_one duration_ms=0.12 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=ContactRepository collection=contacts operation=create duration_ms=0.58 success=true
+2026-08-07 16:59:24 | - | INFO | app.pipeline.persistence | persist_completed company=Acme CLI company_id=6a75c194d078a5fd463e9202 created=True updated=False contacts_created=1 contacts_updated=0 contacts_skipped=0 decision_makers_created=0 decision_makers_updated=0 founders_created=0 founders_updated=0 hiring_opportunities_created=0 hiring_opportunities_updated=0 company_intelligence_saved=False opportunity_score_saved=False email_pattern_saved=False duplicates_skipped=0 errors=0 duration_ms=7.49
+2026-08-07 16:59:24 | - | INFO | app.personalization.service | company=Acme CLI is_flutter_lead=False has_mobile_app=False confidence=0.95 warnings=0
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.orchestrator | [FLUTTER] company=Acme CLI evidence=false
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.orchestrator | [PERSONALIZATION] company=Acme CLI completed
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.orchestrator | [PIPELINE] company=Acme CLI completed success=true duration_ms=11.06
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.orchestrator | [PIPELINE] Completed discovered=1 qualified=1 personalized=1 emails_generated=0 emails_queued=0 errors=0 duration_ms=12.57
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.service | service=LeadGenerationService action=completed success=True processed=1 queued=0 duration_ms=12.57
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=count duration_ms=0.13 success=true
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.service | service=LeadGenerationService action=run
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.service | service=LeadGenerationService action=completed success=True processed=0 queued=0 duration_ms=1.00
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.service | service=LeadGenerationService action=run
+2026-08-07 16:59:24 | - | INFO | app.lead_generation.service | service=LeadGenerationService action=completed success=True processed=0 queued=0 duration_ms=1.00
+2026-08-07 16:59:24 | - | INFO | StubCollector | collector=stub status=started
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.15 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=1.11 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.18 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.73 success=true
+2026-08-07 16:59:24 | - | INFO | StubCollector | collector=stub collected=2 normalized=2 valid=2 saved=2 duration_ms=5.42 status=completed
+2026-08-07 16:59:24 | - | INFO | StubCollector | collector=stub status=started
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.26 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.76 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.19 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.81 success=true
+2026-08-07 16:59:24 | - | INFO | StubCollector | collector=stub collected=3 normalized=3 valid=2 saved=2 duration_ms=6.35 status=completed
+2026-08-07 16:59:24 | - | INFO | StubCollector | collector=stub status=started
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.16 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.91 success=true
+2026-08-07 16:59:24 | - | INFO | StubCollector | collector=stub collected=3 normalized=3 valid=1 saved=1 duration_ms=3.12 status=completed
+2026-08-07 16:59:24 | - | INFO | ProductHuntCollector | collector=producthunt status=started
+2026-08-07 16:59:24 | - | INFO | ProductHuntCollector | collector=producthunt status=collecting
+2026-08-07 16:59:24 | - | INFO | ProductHuntCollector | collector=producthunt pages_fetched=0 products_found=0
+2026-08-07 16:59:24 | - | INFO | ProductHuntCollector | collector=producthunt websites_resolved=0 websites_unresolved=0 leads=0
+2026-08-07 16:59:24 | - | INFO | ProductHuntCollector | collector=producthunt products_saved=0 skipped_duplicates=0
+2026-08-07 16:59:24 | - | INFO | ProductHuntCollector | collector=producthunt collected=0 normalized=0 valid=0 saved=0 duration_ms=2.37 status=completed
+2026-08-07 16:59:24 | 180c77df-4380-46fd-9337-ae4bf7650ab2 | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.14 success=true
+2026-08-07 16:59:24 | 180c77df-4380-46fd-9337-ae4bf7650ab2 | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.74 success=true
+2026-08-07 16:59:24 | 180c77df-4380-46fd-9337-ae4bf7650ab2 | INFO | app.middleware.logging | method=POST path=/api/v1/companies status_code=201 duration_ms=7.81 request_id=180c77df-4380-46fd-9337-ae4bf7650ab2
+2026-08-07 16:59:24 | 180c77df-4380-46fd-9337-ae4bf7650ab2 | INFO | httpx | HTTP Request: POST http://test/api/v1/companies "HTTP/1.1 201 Created"
+2026-08-07 16:59:24 | bbc8c782-c629-42a6-8ce8-a94b5c20fe51 | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_many duration_ms=0.37 success=true
+2026-08-07 16:59:24 | bbc8c782-c629-42a6-8ce8-a94b5c20fe51 | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=paginate duration_ms=1.19 success=true
+2026-08-07 16:59:24 | bbc8c782-c629-42a6-8ce8-a94b5c20fe51 | INFO | app.middleware.logging | method=GET path=/api/v1/companies status_code=200 duration_ms=4.17 request_id=bbc8c782-c629-42a6-8ce8-a94b5c20fe51
+2026-08-07 16:59:24 | bbc8c782-c629-42a6-8ce8-a94b5c20fe51 | INFO | httpx | HTTP Request: GET http://test/api/v1/companies?search=acme "HTTP/1.1 200 OK"
+2026-08-07 16:59:24 | 99d1f917-5bfc-4bdf-98d1-2162febf1aa1 | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_by_id duration_ms=0.60 success=true
+2026-08-07 16:59:24 | 99d1f917-5bfc-4bdf-98d1-2162febf1aa1 | INFO | app.middleware.logging | method=GET path=/api/v1/companies/6a75c194d078a5fd463e9209 status_code=200 duration_ms=2.66 request_id=99d1f917-5bfc-4bdf-98d1-2162febf1aa1
+2026-08-07 16:59:24 | 99d1f917-5bfc-4bdf-98d1-2162febf1aa1 | INFO | httpx | HTTP Request: GET http://test/api/v1/companies/6a75c194d078a5fd463e9209 "HTTP/1.1 200 OK"
+2026-08-07 16:59:24 | f80ae08c-b728-48da-9dd4-3814df9b01f0 | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_by_id duration_ms=0.80 success=true
+2026-08-07 16:59:24 | f80ae08c-b728-48da-9dd4-3814df9b01f0 | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=update duration_ms=1.29 success=true
+2026-08-07 16:59:24 | f80ae08c-b728-48da-9dd4-3814df9b01f0 | INFO | app.middleware.logging | method=PATCH path=/api/v1/companies/6a75c194d078a5fd463e9209 status_code=200 duration_ms=7.45 request_id=f80ae08c-b728-48da-9dd4-3814df9b01f0
+2026-08-07 16:59:24 | f80ae08c-b728-48da-9dd4-3814df9b01f0 | INFO | httpx | HTTP Request: PATCH http://test/api/v1/companies/6a75c194d078a5fd463e9209 "HTTP/1.1 200 OK"
+2026-08-07 16:59:24 | 8c952536-003b-43d9-bad6-e4180e5ee7eb | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=delete duration_ms=0.70 success=true
+2026-08-07 16:59:24 | 8c952536-003b-43d9-bad6-e4180e5ee7eb | INFO | app.middleware.logging | method=DELETE path=/api/v1/companies/6a75c194d078a5fd463e9209 status_code=200 duration_ms=2.69 request_id=8c952536-003b-43d9-bad6-e4180e5ee7eb
+2026-08-07 16:59:24 | 8c952536-003b-43d9-bad6-e4180e5ee7eb | INFO | httpx | HTTP Request: DELETE http://test/api/v1/companies/6a75c194d078a5fd463e9209 "HTTP/1.1 200 OK"
+2026-08-07 16:59:24 | 9b162299-b7d6-41e8-8740-17fc3282ce87 | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_by_id duration_ms=0.56 success=true
+2026-08-07 16:59:24 | 9b162299-b7d6-41e8-8740-17fc3282ce87 | INFO | app.middleware.logging | method=GET path=/api/v1/companies/6a75c194d078a5fd463e9209 status_code=404 duration_ms=2.26 request_id=9b162299-b7d6-41e8-8740-17fc3282ce87
+2026-08-07 16:59:24 | 9b162299-b7d6-41e8-8740-17fc3282ce87 | INFO | httpx | HTTP Request: GET http://test/api/v1/companies/6a75c194d078a5fd463e9209 "HTTP/1.1 404 Not Found"
+2026-08-07 16:59:24 | db11e46d-b1a6-43dd-b5ee-131d3d79f2d6 | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.22 success=true
+2026-08-07 16:59:24 | db11e46d-b1a6-43dd-b5ee-131d3d79f2d6 | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.66 success=true
+2026-08-07 16:59:24 | db11e46d-b1a6-43dd-b5ee-131d3d79f2d6 | INFO | app.middleware.logging | method=POST path=/api/v1/companies status_code=201 duration_ms=4.77 request_id=db11e46d-b1a6-43dd-b5ee-131d3d79f2d6
+2026-08-07 16:59:24 | db11e46d-b1a6-43dd-b5ee-131d3d79f2d6 | INFO | httpx | HTTP Request: POST http://test/api/v1/companies "HTTP/1.1 201 Created"
+2026-08-07 16:59:24 | ea5d59de-6336-47cf-ba5a-ab0940f7c79f | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.30 success=true
+2026-08-07 16:59:24 | ea5d59de-6336-47cf-ba5a-ab0940f7c79f | INFO | app.middleware.logging | method=POST path=/api/v1/companies status_code=409 duration_ms=3.42 request_id=ea5d59de-6336-47cf-ba5a-ab0940f7c79f
+2026-08-07 16:59:24 | ea5d59de-6336-47cf-ba5a-ab0940f7c79f | INFO | httpx | HTTP Request: POST http://test/api/v1/companies "HTTP/1.1 409 Conflict"
+2026-08-07 16:59:24 | - | INFO | app.company_intelligence.service | url=https://acme.example/ industry=Saas business_model=SaaS target_customer=B2B pricing_model=Subscription stage=None pricing_page=True clear_icp=True b2b_saas=True developer_tools=False confidence=0.85
+2026-08-07 16:59:24 | - | INFO | app.company_intelligence.service | url=https://acme.example/ industry=Developer Tools business_model=Developer Tool target_customer=Developers pricing_model=Unknown stage=None pricing_page=False clear_icp=True b2b_saas=False developer_tools=True confidence=0.60
+2026-08-07 16:59:24 | - | INFO | app.company_intelligence.service | url=https://acme.example/ industry=Enterprise Software business_model=Enterprise Software target_customer=Enterprise pricing_model=Enterprise stage=Enterprise pricing_page=False clear_icp=True b2b_saas=False developer_tools=False confidence=0.70
+2026-08-07 16:59:24 | - | INFO | app.company_intelligence.service | url=https://acme.example/ industry=App business_model=Consumer App target_customer=B2C pricing_model=Unknown stage=None pricing_page=False clear_icp=True b2b_saas=False developer_tools=False confidence=0.60
+2026-08-07 16:59:24 | - | INFO | app.company_intelligence.service | url=https://acme.example/ industry=Pricing business_model=SaaS target_customer=None pricing_model=Freemium stage=None pricing_page=True clear_icp=False b2b_saas=False developer_tools=False confidence=0.65
+2026-08-07 16:59:24 | - | INFO | app.company_intelligence.service | url=https://acme.example/ industry=FinTech business_model=FinTech target_customer=SMB pricing_model=Unknown stage=Growth pricing_page=False clear_icp=True b2b_saas=False developer_tools=False confidence=0.60
+2026-08-07 16:59:24 | - | INFO | app.company_intelligence.service | url=https://acme.example/ industry=Saas business_model=SaaS target_customer=B2B pricing_model=Subscription stage=Early Startup pricing_page=False clear_icp=True b2b_saas=True developer_tools=False confidence=0.80
+2026-08-07 16:59:24 | - | INFO | app.company_intelligence.service | url=https://acme.example/ industry=Saas business_model=SaaS target_customer=B2B pricing_model=Subscription stage=None pricing_page=False clear_icp=True b2b_saas=True developer_tools=False confidence=0.75
+2026-08-07 16:59:24 | - | INFO | app.company_intelligence.service | url=https://acme.example/ industry=Hello business_model=None target_customer=None pricing_model=Unknown stage=None pricing_page=False clear_icp=False b2b_saas=False developer_tools=False confidence=0.25
+2026-08-07 16:59:24 | - | INFO | app.company_intelligence.service | url=https://acme.example/ industry=Saas business_model=SaaS target_customer=B2B pricing_model=Subscription stage=None pricing_page=False clear_icp=True b2b_saas=True developer_tools=False confidence=0.75
+2026-08-07 16:59:24 | - | INFO | app.company_profile.service | url=https://linear.app/ company=Linear category=Developer Tools product_type=SaaS pricing=Freemium confidence=1.00
+2026-08-07 16:59:24 | - | INFO | app.company_profile.service | url=https://linear.app/ company=Linear category=Developer Tools product_type=SaaS pricing=Freemium confidence=1.00
+2026-08-07 16:59:24 | - | INFO | app.company_profile.service | url=https://acme.example/ company=Acme category=Marketing product_type=Platform pricing=Freemium confidence=0.55
+2026-08-07 16:59:24 | - | INFO | app.company_profile.service | url=https://linear.app/ company=Linear category=None product_type=SaaS pricing=None confidence=0.23
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.61 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_by_id duration_ms=0.34 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=update duration_ms=1.32 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=exists duration_ms=0.12 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=count duration_ms=0.11 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=delete duration_ms=0.47 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_by_id duration_ms=0.11 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.65 success=true
+2026-08-07 16:59:24 | - | ERROR | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.42 success=false error=DuplicateKeyError
+Traceback (most recent call last):
+  File "c:\Users\METALOGYC\Desktop\job-lead-finder\.venv\Lib\site-packages\mongomock_motor\patches.py", line 58, in wrapper
+    return fn(data, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\METALOGYC\Desktop\job-lead-finder\.venv\Lib\site-packages\mongomock\collection.py", line 596, in _ensure_uniques
+    raise DuplicateKeyError('E11000 Duplicate Key Error', 11000)
+pymongo.errors.DuplicateKeyError: E11000 Duplicate Key Error
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "c:\Users\METALOGYC\Desktop\job-lead-finder\.venv\Lib\site-packages\mongomock_motor\patches.py", line 58, in wrapper
+    return fn(data, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\METALOGYC\Desktop\job-lead-finder\.venv\Lib\site-packages\mongomock\collection.py", line 569, in _insert
+    self._ensure_uniques(data)
+  File "c:\Users\METALOGYC\Desktop\job-lead-finder\.venv\Lib\site-packages\mongomock_motor\patches.py", line 60, in wrapper
+    raise _provide_error_details(collection, data, exc)
+pymongo.errors.DuplicateKeyError: E11000 Duplicate Key Error, full error: {'keyValue': {'website': 'https://dup.example'}, 'keyPattern': {'website': 1}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\METALOGYC\Desktop\job-lead-finder\backend\app\repositories\base_repository.py", line 61, in create
+    created = await document.insert()
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\METALOGYC\Desktop\job-lead-finder\.venv\Lib\site-packages\beanie\odm\actions.py", line 239, in wrapper
+    result = await f(
+             ^^^^^^^^
+  File "c:\Users\METALOGYC\Desktop\job-lead-finder\.venv\Lib\site-packages\beanie\odm\utils\state.py", line 85, in wrapper
+    result = await f(self, *args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\METALOGYC\Desktop\job-lead-finder\.venv\Lib\site-packages\beanie\odm\utils\self_validation.py", line 19, in wrapper
+    return await f(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\METALOGYC\Desktop\job-lead-finder\.venv\Lib\site-packages\beanie\odm\documents.py", line 366, in insert
+    result = await self.get_motor_collection().insert_one(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\METALOGYC\Desktop\job-lead-finder\.venv\Lib\site-packages\mongomock_motor\__init__.py", line 43, in wrapper
+    return getattr(proxy_source, method_name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\METALOGYC\Desktop\job-lead-finder\.venv\Lib\site-packages\mongomock\collection.py", line 497, in insert_one
+    return InsertOneResult(self._insert(document, session), acknowledged=True)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\METALOGYC\Desktop\job-lead-finder\.venv\Lib\site-packages\mongomock_motor\patches.py", line 60, in wrapper
+    raise _provide_error_details(collection, data, exc)
+pymongo.errors.DuplicateKeyError: E11000 Duplicate Key Error, full error: {'keyValue': {'website': 'https://dup.example'}, 'keyPattern': {'website': 1}}
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.64 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.99 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.77 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.87 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=1.01 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_many duration_ms=0.48 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=paginate duration_ms=1.09 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_many duration_ms=0.46 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=paginate duration_ms=1.07 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.19 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.78 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.14 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.87 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.36 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.16 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.74 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_by_id duration_ms=0.47 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=update duration_ms=1.04 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_by_id duration_ms=0.60 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.14 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.70 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=delete duration_ms=0.53 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_by_id duration_ms=0.64 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.14 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.70 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_one duration_ms=0.14 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=create duration_ms=0.69 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=find_many duration_ms=0.37 success=true
+2026-08-07 16:59:24 | - | INFO | app.repositories.base_repository | repository=CompanyRepository collection=companies operation=paginate duration_ms=1.39 success=true
+2026-08-07 16:59:24 | - | INFO | app.contact_discovery.service | url=https://acme.example/ decision_makers_found=1 generic_contacts_found=1 best_contact=jane@acme.example best_contact_score=100 pages_scanned=1
+2026-08-07 16:59:24 | - | INFO | app.contact_discovery.service | url=https://acme.example/ decision_makers_found=2 generic_contacts_found=1 best_contact=John Smith best_contact_score=95 pages_scanned=1
+2026-08-07 16:59:24 | - | INFO | app.contact_discovery.service | url=https://acme.example/ decision_makers_found=1 generic_contacts_found=0 best_contact=alex@acme.example best_contact_score=100 pages_scanned=1
+2026-08-07 16:59:24 | - | INFO | app.contact_discovery.service | url=https://acme.example/ decision_makers_found=1 generic_contacts_found=1 best_contact=hiring@acme.example best_contact_score=77 pages_scanned=1
+2026-08-07 16:59:24 | - | INFO | app.contact_discovery.service | url=https://acme.example/ decision_makers_found=0 generic_contacts_found=1 best_contact=support@acme.example best_contact_score=20 pages_scanned=1
+2026-08-07 16:59:24 | - | INFO | app.contact_discovery.service | url=https://acme.example/ decision_makers_found=0 generic_contacts_found=2 best_contact=support@acme.example best_contact_score=20 pages_scanned=1
+2026-08-07 16:59:24 | - | INFO | app.contact_discovery.service | url=https://acme.example/ decision_makers_found=0 generic_contacts_found=1 best_contact=None best_contact_score=35 pages_scanned=1
+2026-08-07 16:59:24 | - | INFO | app.contact_discovery.service | url=https://acme.example/ decision_makers_found=1 generic_contacts_found=1 best_contact=John Smith best_contact_score=95 pages_scanned=1
+2026-08-07 16:59:24 | - | INFO | app.contact_discovery.service | url=https://acme.example/ decision_makers_found=0 generic_contacts_found=1 best_contact=support@acme.example best_contact_score=20 pages_scanned=1
+2026-08-07 16:59:24 | - | INFO | app.contact_discovery.service | url=https://acme.example/ decision_makers_found=1 generic_contacts_found=2 best_contact=jane@acme.example best_contact_score=100 pages_scanned=1
+2026-08-07 16:59:24 | - | INFO | app.contact_discovery.service | url=https://acme.example/ decision_makers_found=0 generic_contacts_found=1 best_contact=None best_contact_score=35 pages_scanned=1
+2026-08-07 16:59:24 | - | INFO | app.contact_discovery.service | url=https://acme.example/ decision_makers_found=0 generic_contacts_found=1 best_contact=None best_contact_score=15 pages_scanned=1
+2026-08-07 16:59:24 | - | INFO | app.contact_discovery.service | url=https://acme.example/ decision_makers_found=1 generic_contacts_found=0 best_contact=priya@acme.example best_contact_score=100 pages_scanned=2
+2026-08-07 16:59:24 | - | INFO | app.core.daily_logging | daily_log_pruned file=2026-08-01logs.txt
+2026-08-07 16:59:24 | - | INFO | app.core.daily_logging | daily_log_pruned file=2026-08-01logs.txt
+2026-08-07 16:59:24 | - | INFO | app.core.daily_logging | daily_log_pruned file=2026-08-02logs.txt

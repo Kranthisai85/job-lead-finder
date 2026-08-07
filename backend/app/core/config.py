@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     log_file: str = "app.log"
     log_max_bytes: int = Field(default=10_485_760, ge=1)
     log_backup_count: int = Field(default=5, ge=1)
+    log_retention_days: int = Field(default=7, ge=1, le=365)
 
     request_id_header: str = "X-Request-ID"
     cors_origins: str = "*"
@@ -38,6 +39,8 @@ class Settings(BaseSettings):
         "not_github_io,not_vercel_app,not_netlify_app,not_notion_site,"
         "description_length,has_topic"
     )
+    # Minimum outbound lead score for email queue eligibility (Step 37).
+    min_lead_score: int = Field(default=60, ge=0, le=100)
 
     crawler_timeout: float = Field(default=20.0, ge=1.0)
     crawler_max_redirects: int = Field(default=5, ge=0)
@@ -55,6 +58,9 @@ class Settings(BaseSettings):
     max_collectors: int = Field(default=10, ge=1, le=50)
 
     scheduler_enabled: bool = True
+    scheduler_timezone: str = "Asia/Kolkata"
+    scheduler_hour: int = Field(default=9, ge=0, le=23)
+    scheduler_minute: int = Field(default=0, ge=0, le=59)
     collect_cron: str = "0 * * * *"
     validation_cron: str = "30 * * * *"
     cleanup_cron: str = "0 2 * * *"

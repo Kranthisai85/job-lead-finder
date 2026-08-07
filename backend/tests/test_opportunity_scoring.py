@@ -203,7 +203,7 @@ def test_founder_email_recommends_send_founder_email_on_high() -> None:
             flutter_already_detected=0,
             existing_native_apps=0,
             non_company_website=0,
-        )
+        ),
     )
     report = OpportunityScoringService(config=config).score(
         url="https://acme.example",

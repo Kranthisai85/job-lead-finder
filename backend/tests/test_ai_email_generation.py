@@ -10,7 +10,6 @@ import pytest
 from app.ai.client import OllamaClient, OllamaModelNotFoundError, format_ollama_error
 from app.ai.generator import AIEmailGenerator
 from app.ai.prompts import (
-    DEFAULT_EMAIL_REQUIRED_FIELDS,
     build_email_prompt,
     build_followup_prompt,
     build_prompt_context,
@@ -323,7 +322,7 @@ async def test_successful_generation() -> None:
 
 @pytest.mark.asyncio
 async def test_e2e_lead_personalization_ai_email_for_one_company() -> None:
-    """Production path: CompleteLead → personalization → prompt → mocked Ollama → validated email."""
+    """CompleteLead → personalization → prompt → mocked Ollama → validated email."""
     lead = CompleteLead(
         startup=StartupSeed(
             name="FlutterPulse",

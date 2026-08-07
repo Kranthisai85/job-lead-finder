@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
 
 from app.core.logger import get_logger
@@ -27,79 +26,7 @@ class QueueRepository(BaseRepository[EmailQueueEntry]):
         )
         return entry
 
-    async def approve(self, item_id: str) -> EmailQueueEntry | None:
-        return await self._update_status(
-            item_id,
-            EmailQueueStatus.APPROVED,
-            extra={"approved_at": datetime.now(timezone.utc), "error_message": None},
-            log_action="approved",
-        )
-
-    async def reject(self, item_id: str, *, reason: str | None = None) -> EmailQueueEntry | None:
-        return await self._update_status(
-            item_id,
-            EmailQueueStatus.CANCELLED,
-            extra={"error_message": reason},
-            log_action="rejected",
-        )
-
-    async def get_pending(self) -> list[EmailQueueEntry]:
-        return await self.find_many({"status": EmailQueueStatus.PENDING.value})
-
-    async def get_approved(self) -> list[EmailQueueEntry]:
-        return await self.find_many({"status": EmailQueueStatus.APPROVED.value})
-
-    async def get_retryable_failed(self) -> list[EmailQueueEntry]:
-        return await self.find_many(
-            {
-                "status": EmailQueueStatus.FAILED.value,
-                "retry_count": {"$lt": self.MAX_RETRIES},
-            }
-        )
-
-    async def mark_sending(self, item_id: str) -> EmailQueueEntry | None:
-        return await self._update_status(item_id, EmailQueueStatus.SENDING, log_action="sending")
-
-    async def mark_sent(self, item_id: str) -> EmailQueueEntry | None:
-        return await self._update_status(
-            item_id,
-            EmailQueueStatus.SENT,
-            extra={"sent_at": datetime.now(timezone.utc), "error_message": None},
-            log_action="sent",
-        )
-
-    async def mark_failed(self, item_id: str, *, error: str) -> EmailQueueEntry | None:
-        entry = await self.find_by_id(item_id)
-        if entry is None:
-            return None
-        retry_count = entry.retry_count + 1
-        updated = await self.update(
-            item_id,
-            {
-                "status": EmailQueueStatus.FAILED,
-                "error_message": error,
-                "retry_count": retry_count,
-            },
-        )
-        if updated is not None:
-            self.logger.warning(
-                "email_failed id=%s retry_count=%d error=%s",
-                item_id,
-                retry_count,
-                error,
-            )
-        return updated
-
-    async def find_by_id_item(self, item_id: str) -> EmailQueueEntry | None:
-        return await self.find_by_id(item_id)
-
-    async def count_by_status(self) -> dict[str, int]:
-        counts: dict[str, int] = {}
-        for status in EmailQueueStatus:
-            counts[status.value] = await self.count({"status": status.value})
-        return counts
-
-    async def _update_status(
+    async def apply_status(
         self,
         item_id: str,
         status: EmailQueueStatus,
@@ -119,6 +46,32 @@ class QueueRepository(BaseRepository[EmailQueueEntry]):
                 status.value,
             )
         return updated
+
+    async def get_pending(self) -> list[EmailQueueEntry]:
+        return await self.find_many({"status": EmailQueueStatus.PENDING.value})
+
+    async def get_approved(self) -> list[EmailQueueEntry]:
+        return await self.find_many({"status": EmailQueueStatus.APPROVED.value})
+
+    async def get_ready_to_send(self) -> list[EmailQueueEntry]:
+        return await self.find_many({"status": EmailQueueStatus.READY_TO_SEND.value})
+
+    async def get_retryable_failed(self) -> list[EmailQueueEntry]:
+        return await self.find_many(
+            {
+                "status": EmailQueueStatus.FAILED.value,
+                "retry_count": {"$lt": self.MAX_RETRIES},
+            }
+        )
+
+    async def find_by_id_item(self, item_id: str) -> EmailQueueEntry | None:
+        return await self.find_by_id(item_id)
+
+    async def count_by_status(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for status in EmailQueueStatus:
+            counts[status.value] = await self.count({"status": status.value})
+        return counts
 
     @staticmethod
     def to_item(entry: EmailQueueEntry) -> EmailQueueItem:

@@ -28,7 +28,8 @@ def make_profile(
 
 
 def discover(profile: WebsiteProfile, **kwargs: object) -> object:
-    return ContactDiscoveryService(fetch_extra_pages=False, **kwargs).discover(profile)  # type: ignore[arg-type]
+    service = ContactDiscoveryService(fetch_extra_pages=False, **kwargs)
+    return service.discover(profile)  # type: ignore[arg-type]
 
 
 def test_visible_email() -> None:

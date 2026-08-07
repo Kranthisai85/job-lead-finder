@@ -1,5 +1,6 @@
 from fastapi import Depends
 
+from app.email_queue.service import EmailQueueService
 from app.repositories.company_repository import CompanyRepository
 from app.repositories.contact_repository import ContactRepository
 from app.repositories.email_draft_repository import EmailDraftRepository
@@ -27,3 +28,7 @@ def get_email_draft_repository() -> EmailDraftRepository:
 
 def get_scraper_job_repository() -> ScraperJobRepository:
     return ScraperJobRepository()
+
+
+def get_email_queue_service() -> EmailQueueService:
+    return EmailQueueService()
