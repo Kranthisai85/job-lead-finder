@@ -137,6 +137,40 @@ async def test_persist_new_company(test_db: Any) -> None:
 
 
 @pytest.mark.asyncio
+async def test_persist_is_flutter_lead_false_without_flutter_evidence(test_db: Any) -> None:
+    """Qualified + contacts + no mobile app alone must not set is_flutter_lead."""
+    lead = make_lead(name="NoFlutterCo", website="https://noflutter.example")
+    assert lead.qualification_report is not None and lead.qualification_report.qualified is True
+    assert lead.mobile_report is not None and lead.mobile_report.has_mobile_app is False
+    assert lead.contacts is not None and lead.contacts.contact_count > 0
+    assert all(tech.name.lower() not in {"flutter", "dart"} for tech in lead.technology_report.technologies)
+
+    result = await PipelinePersistenceService().persist(lead)
+    company = await CompanyRepository().find_by_id(result.company_id)
+    assert company is not None
+    assert company.is_flutter_lead is False
+
+
+@pytest.mark.asyncio
+async def test_persist_is_flutter_lead_true_with_flutter_technology(test_db: Any) -> None:
+    lead = make_lead(name="FlutterCo", website="https://flutterco.example")
+    lead.technology_report = TechnologyReport(
+        url=lead.startup.website,
+        technologies=[
+            Technology(name="Flutter", category="mobile", confidence=95),
+            Technology(name="Firebase", category="backend", confidence=80),
+        ],
+        detected_count=2,
+    )
+
+    result = await PipelinePersistenceService().persist(lead)
+    company = await CompanyRepository().find_by_id(result.company_id)
+    assert company is not None
+    assert company.is_flutter_lead is True
+    assert company.has_mobile_app is False
+
+
+@pytest.mark.asyncio
 async def test_persist_duplicate_company_updates(test_db: Any) -> None:
     service = PipelinePersistenceService()
     first = await service.persist(make_lead())

@@ -1,8 +1,18 @@
 from __future__ import annotations
 
+import re
+
 from app.personalization import prompts
 from app.personalization.types import PersonalizedEmailContext
 from app.pipeline.types import CompleteLead
+
+# Explicit Flutter/Dart phrases only — not generic mobile or web-stack hints.
+_FLUTTER_PHRASE_PATTERN = re.compile(
+    r"\bflutter(?:\s+(?:developer|engineer|application|mobile(?:\s+app)?|app|sdk))?\b",
+    re.IGNORECASE,
+)
+_DART_WORD_PATTERN = re.compile(r"\bdart\b", re.IGNORECASE)
+_FLUTTER_TECH_NAMES = frozenset({"flutter", "dart"})
 
 
 class PersonalizationGenerator:
@@ -12,7 +22,7 @@ class PersonalizationGenerator:
         company_name = self._company_name(lead)
         technology_names = self._technology_names(lead)
         has_mobile_app = self._has_mobile_app(lead)
-        is_flutter_lead = self._is_flutter_lead(lead, has_mobile_app)
+        is_flutter_lead = self._is_flutter_lead(lead)
         warnings = self._build_warnings(lead, technology_names, has_mobile_app)
 
         company_summary = self._company_summary(lead, company_name)
@@ -64,34 +74,73 @@ class PersonalizationGenerator:
             return lead.lead_intelligence.has_mobile_app
         return False
 
+    @classmethod
+    def _is_flutter_lead(cls, lead: CompleteLead) -> bool:
+        """True only when explicit Flutter/Dart evidence exists on the lead."""
+        return cls.has_explicit_flutter_evidence(lead)
+
+    @classmethod
+    def has_explicit_flutter_evidence(cls, lead: CompleteLead) -> bool:
+        """Conservative Flutter signal: technology, copy, hiring, or detector evidence."""
+        for name in cls._technology_names(lead):
+            if name.strip().lower() in _FLUTTER_TECH_NAMES:
+                return True
+
+        if lead.hiring_report is not None and lead.hiring_report.flutter_jobs > 0:
+            return True
+
+        if lead.mobile_report is not None:
+            for item in lead.mobile_report.evidence or []:
+                if cls._text_mentions_flutter(item):
+                    return True
+
+        if lead.hiring_report is not None:
+            for opportunity in lead.hiring_report.opportunities or []:
+                parts = [opportunity.title, *(opportunity.matched_keywords or [])]
+                if cls._text_mentions_flutter(" ".join(part for part in parts if part)):
+                    return True
+
+        return cls._text_mentions_flutter(cls._flutter_evidence_corpus(lead))
+
+    @classmethod
+    def _flutter_evidence_corpus(cls, lead: CompleteLead) -> str:
+        parts: list[str] = []
+        if lead.startup.description:
+            parts.append(lead.startup.description)
+        profile = lead.website_profile
+        if profile is not None:
+            if profile.title:
+                parts.append(profile.title)
+            if profile.description:
+                parts.append(profile.description)
+            html = ""
+            if profile.metadata:
+                html = str(profile.metadata.get("html") or "")
+            if html:
+                parts.append(html)
+        company = lead.company_profile
+        if company is not None:
+            for value in (
+                company.short_description,
+                company.industry,
+                company.business_category,
+                company.product_type,
+            ):
+                if value:
+                    parts.append(value)
+        qualification = lead.qualification_report
+        if qualification is None and lead.lead_intelligence is not None:
+            qualification = lead.lead_intelligence.qualification
+        if qualification is not None:
+            parts.extend(qualification.reasons or [])
+            parts.extend(qualification.warnings or [])
+        return " ".join(parts)
+
     @staticmethod
-    def _is_flutter_lead(lead: CompleteLead, has_mobile_app: bool) -> bool:
-        # Flutter outreach targets Good/Excellent leads without an existing mobile app.
-        if has_mobile_app:
+    def _text_mentions_flutter(text: str) -> bool:
+        if not text or not text.strip():
             return False
-        if lead.lead_intelligence is not None:
-            if not lead.lead_intelligence.is_good_lead:
-                return False
-            return bool(
-                lead.lead_intelligence.primary_email
-                or lead.lead_intelligence.best_contact
-                or (
-                    lead.lead_intelligence.contact_discovery
-                    and (
-                        lead.lead_intelligence.contact_discovery.emails
-                        or lead.lead_intelligence.contact_discovery.contacts
-                    )
-                )
-            )
-        qualification_passed = bool(
-            lead.qualification_report and lead.qualification_report.qualified
-        )
-        has_website = bool(lead.startup.website and lead.startup.website.strip())
-        has_contact = bool(
-            lead.contacts
-            and (lead.contacts.contact_count > 0 or lead.contacts.emails or lead.contacts.contacts)
-        )
-        return qualification_passed and has_website and has_contact
+        return bool(_FLUTTER_PHRASE_PATTERN.search(text) or _DART_WORD_PATTERN.search(text))
 
     def _company_summary(self, lead: CompleteLead, company_name: str) -> str:
         profile = lead.company_profile

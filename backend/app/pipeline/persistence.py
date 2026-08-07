@@ -405,9 +405,9 @@ class PipelinePersistenceService:
         elif lead.lead_intelligence is not None:
             has_mobile_app = lead.lead_intelligence.has_mobile_app
 
-        is_flutter_lead = None
-        if lead.lead_intelligence is not None:
-            is_flutter_lead = lead.lead_intelligence.is_good_lead
+        from app.personalization.generator import PersonalizationGenerator
+
+        is_flutter_lead = PersonalizationGenerator.has_explicit_flutter_evidence(lead)
 
         country = None
         if profile and profile.headquarters:

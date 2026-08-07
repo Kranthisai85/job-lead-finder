@@ -147,7 +147,6 @@ class ValidationPipeline:
             company_intelligence=result.company_intelligence,
             opportunity_score=result.opportunity_score,
             qualification_report=result.qualification,
-            contacts=result.contact_discovery,
             email_pattern_report=result.email_patterns,
             lead_intelligence=result.lead_intelligence,
             processing=ProcessingMetadata(

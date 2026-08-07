@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from app.company_profile.types import CompanyProfile
 from app.contact_discovery.types import ContactCandidate, ContactDiscoveryReport
 from app.crawler.types import WebsiteProfile
+from app.hiring_detection.types import HiringDetectionReport, HiringOpportunity
 from app.intelligence.types import LeadIntelligence, LeadIntelligenceMetadata
 from app.mobile_detection.types import MobileAppDetectionResult
 from app.personalization.service import CompanyPersonalizationService
@@ -27,6 +28,9 @@ def make_lead(
     include_qualification: bool = True,
     include_intelligence: bool = True,
     company_name: str = "Acme",
+    description: str | None = None,
+    html: str | None = None,
+    hiring_report: HiringDetectionReport | None = None,
 ) -> CompleteLead:
     tech_names = technologies if technologies is not None else ["React", "Tailwind"]
     technology_report = None
@@ -74,6 +78,9 @@ def make_lead(
             ios_detected=ios,
         )
 
+    company_description = description or "Issue tracking for software teams"
+    metadata = {"html": html} if html else {}
+
     intelligence = None
     if include_intelligence:
         intelligence = LeadIntelligence(
@@ -81,7 +88,7 @@ def make_lead(
                 id="1",
                 name=company_name,
                 website="acme.example",
-                description="Issue tracking for software teams",
+                description=company_description,
                 industry="Project Management",
                 source="test",
                 created_at=datetime.now(timezone.utc),
@@ -92,6 +99,7 @@ def make_lead(
                 title=company_name,
                 valid=True,
                 status_code=200,
+                metadata=metadata,
             ),
             technology_report=technology_report,
             mobile_detection=mobile_report,
@@ -104,20 +112,21 @@ def make_lead(
         startup=StartupSeed(
             name=company_name,
             website="https://acme.example",
-            description="Issue tracking for software teams",
+            description=company_description,
             source="test",
         ),
         website_profile=WebsiteProfile(
             url="https://acme.example",
             final_url="https://acme.example/",
             title=company_name,
-            description="Issue tracking for software teams",
+            description=company_description,
             valid=True,
             status_code=200,
+            metadata=metadata,
         ),
         company_profile=CompanyProfile(
             company_name=company_name,
-            short_description="Issue tracking for software teams",
+            short_description=company_description,
             business_category="Developer Tools",
             industry="Project Management",
             product_type="SaaS",
@@ -128,6 +137,7 @@ def make_lead(
         mobile_report=mobile_report,
         qualification_report=qualification,
         contacts=contacts,
+        hiring_report=hiring_report,
         lead_intelligence=intelligence,
         processing=ProcessingMetadata(success=True),
     )
@@ -152,13 +162,81 @@ def test_mobile_app_detected() -> None:
     assert any("Mobile app already detected" in warning for warning in context.warnings)
 
 
-def test_flutter_lead() -> None:
+def test_flutter_technology_is_flutter_lead() -> None:
     context = CompanyPersonalizationService().generate(
-        make_lead(has_mobile_app=False, qualified=True, with_contacts=True)
+        make_lead(technologies=["Flutter", "Firebase"], has_mobile_app=False)
     )
     assert context.is_flutter_lead is True
     assert "Flutter-based mobile product" in context.suggested_value_proposition
-    assert "Ada Lovelace" in context.cta_recommendation or "Flutter" in context.cta_recommendation
+
+
+def test_dart_technology_is_flutter_lead() -> None:
+    context = CompanyPersonalizationService().generate(
+        make_lead(technologies=["Dart"], has_mobile_app=False)
+    )
+    assert context.is_flutter_lead is True
+
+
+def test_website_flutter_developer_copy_is_flutter_lead() -> None:
+    context = CompanyPersonalizationService().generate(
+        make_lead(
+            technologies=["React"],
+            description="We are hiring a Flutter developer for our mobile roadmap.",
+        )
+    )
+    assert context.is_flutter_lead is True
+
+
+def test_hiring_flutter_job_is_flutter_lead() -> None:
+    hiring = HiringDetectionReport(
+        url="https://acme.example",
+        jobs_found=1,
+        flutter_jobs=1,
+        opportunities=[
+            HiringOpportunity(
+                title="Senior Flutter Engineer",
+                matched_keywords=["flutter"],
+                confidence=0.9,
+            )
+        ],
+    )
+    context = CompanyPersonalizationService().generate(
+        make_lead(technologies=["React", "Vercel"], hiring_report=hiring)
+    )
+    assert context.is_flutter_lead is True
+
+
+def test_react_vue_svelte_only_is_not_flutter_lead() -> None:
+    context = CompanyPersonalizationService().generate(
+        make_lead(
+            technologies=["Vercel", "Nuxt", "Cloudflare", "Vue", "Svelte", "React"],
+            has_mobile_app=False,
+            qualified=True,
+            with_contacts=True,
+        )
+    )
+    assert context.is_flutter_lead is False
+    assert "Flutter-based mobile product" not in context.suggested_value_proposition
+
+
+def test_no_mobile_app_does_not_imply_flutter() -> None:
+    context = CompanyPersonalizationService().generate(
+        make_lead(
+            technologies=["Netlify", "Google Analytics"],
+            has_mobile_app=False,
+            qualified=True,
+            with_contacts=True,
+        )
+    )
+    assert context.has_mobile_app is False
+    assert context.is_flutter_lead is False
+
+
+def test_no_flutter_evidence_is_not_flutter_lead() -> None:
+    context = CompanyPersonalizationService().generate(
+        make_lead(technologies=["Vercel"], has_mobile_app=False, qualified=True)
+    )
+    assert context.is_flutter_lead is False
 
 
 def test_non_flutter_lead_with_mobile() -> None:
@@ -182,9 +260,7 @@ def test_missing_contacts() -> None:
     context = CompanyPersonalizationService().generate(make_lead(with_contacts=False))
     assert "Missing contacts" in context.warnings
     assert context.is_flutter_lead is False
-    assert "Flutter mobile MVP" in context.cta_recommendation or "brief call" in (
-        context.cta_recommendation
-    )
+    assert "brief call" in context.cta_recommendation
 
 
 def test_confidence_scoring() -> None:
