@@ -13,15 +13,22 @@ from app.email_queue.repository import QueueRepository
 from app.email_queue.sender import EmailSender
 from app.email_queue.service import EmailQueueService
 from app.email_queue.types import EmailQueueStatus
+from app.models.sender_profile import SenderProfileDocument
+from app.sender_profile.service import SenderProfileService
+from app.sender_profile.types import SenderProfileUpdate
 
 
 @pytest.fixture()
 async def queue_db() -> AsyncIterator[Any]:
     client = AsyncMongoMockClient()
     database = client["lead_finder_test"]
-    await init_beanie(database=database, document_models=[EmailQueueEntry])
+    await init_beanie(
+        database=database,
+        document_models=[EmailQueueEntry, SenderProfileDocument],
+    )
     yield database
     await EmailQueueEntry.delete_all()
+    await SenderProfileDocument.delete_all()
     client.close()
 
 
@@ -407,3 +414,66 @@ async def test_repository_get_pending_and_approved(queue_db: Any) -> None:
     assert len(pending) == 1
     assert len(approved) == 1
     assert str(approved[0].id) == str(approved_entry.id)
+
+
+@pytest.mark.asyncio
+async def test_enqueue_uses_sender_profile_in_signature(queue_db: Any) -> None:
+    await SenderProfileService().update_profile(
+        SenderProfileUpdate(
+            display_name="Kranthi Sai",
+            linkedin_url="https://linkedin.com/in/kranthi",
+            github_url="https://github.com/kranthi",
+        )
+    )
+    service = EmailQueueService()
+    item = await service.enqueue(
+        generated_email=make_generated_email(),
+        company_id="company-1",
+        contact_id="contact-1",
+        recipient_name="Ada Lovelace",
+        recipient_email="ada@acme.example",
+    )
+
+    assert "{{sender_name}}" not in item.body
+    assert "Kranthi Sai" in item.body
+    assert "LinkedIn: https://linkedin.com/in/kranthi" in item.body
+    assert "GitHub: https://github.com/kranthi" in item.body
+
+
+@pytest.mark.asyncio
+async def test_send_replaces_legacy_sender_name_placeholder(queue_db: Any) -> None:
+    await SenderProfileService().update_profile(
+        SenderProfileUpdate(
+            display_name="Kranthi Sai",
+            linkedin_url="https://linkedin.com/in/kranthi",
+            github_url="https://github.com/kranthi",
+        )
+    )
+    repo = QueueRepository()
+    entry = await repo.create(
+        {
+            "company_id": "company-1",
+            "contact_id": "contact-1",
+            "recipient_name": "Ada Lovelace",
+            "recipient_email": "ada@acme.example",
+            "subject": "Hello",
+            "body": "Hi Ada,\n\nBody text.\n\nBest regards,\n{{sender_name}}",
+            "status": EmailQueueStatus.READY_TO_SEND,
+        }
+    )
+    transport = StubTransport()
+    service = EmailQueueService(sender=EmailSender(transport=transport, dry_run=False))
+
+    result = await service.send_one(str(entry.id))
+    assert result.sent == 1
+    assert len(transport.messages) == 1
+    payload = transport.messages[0].as_string()
+    assert "{{sender_name}}" not in payload
+    assert "Kranthi Sai" in payload
+    assert "LinkedIn: https://linkedin.com/in/kranthi" in payload
+    assert "GitHub: https://github.com/kranthi" in payload
+
+    stored = await QueueRepository().find_by_id_item(str(entry.id))
+    assert stored is not None
+    assert "{{sender_name}}" not in stored.body
+    assert "Kranthi Sai" in stored.body

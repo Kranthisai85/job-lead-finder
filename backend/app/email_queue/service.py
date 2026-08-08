@@ -22,6 +22,8 @@ from app.email_queue.types import (
     SendResult,
 )
 from app.repositories.company_repository import CompanyRepository
+from app.sender_profile.service import SenderProfileService
+from app.sender_profile.types import finalize_body_for_send
 
 _RECIPIENT_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -41,6 +43,7 @@ class EmailQueueService:
         self.sender = sender or EmailSender()
         self.company_repository = company_repository or CompanyRepository()
         self.approval = approval_service or ApprovalService(repository=self.repository)
+        self.sender_profile = SenderProfileService()
         self.logger = get_logger(__name__)
 
     async def enqueue(
@@ -53,7 +56,8 @@ class EmailQueueService:
         recipient_email: str,
         lead_score: float | None = None,
     ) -> EmailQueueItem:
-        body = compose_email_body(generated_email)
+        profile = await self.sender_profile.get_profile()
+        body = compose_email_body(generated_email, profile=profile)
         entry = await self.repository.create(
             {
                 "company_id": company_id,
@@ -297,11 +301,16 @@ class EmailQueueService:
             recipient,
         )
         try:
+            profile = await self.sender_profile.get_profile()
+            body = finalize_body_for_send(entry.body, profile)
+            if body != entry.body:
+                entry.body = body
+                await entry.save()
             await self.sender.send(
                 recipient_name=entry.recipient_name,
                 recipient_email=entry.recipient_email,
                 subject=entry.subject,
-                body=entry.body,
+                body=body,
             )
             await self.approval.mark_sent(item_id)
             self.logger.info(

@@ -17,6 +17,7 @@ from app.models.decision_maker import CompanyDecisionMakerDocument
 from app.models.email_draft import EmailDraft
 from app.models.hiring_opportunity import HiringOpportunityDocument
 from app.models.scraper_job import ScraperJob
+from app.models.sender_profile import SenderProfileDocument
 from app.opportunity_scoring.models import OpportunityScoreDocument
 
 # Ordered list passed to beanie.init_beanie
@@ -31,6 +32,7 @@ DOCUMENT_MODELS: list[type[Any]] = [
     EmailDraft,
     EmailQueueEntry,
     ScraperJob,
+    SenderProfileDocument,
 ]
 
 REGISTERED_MODEL_NAMES: list[str] = [model.__name__ for model in DOCUMENT_MODELS]

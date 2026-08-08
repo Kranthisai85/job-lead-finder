@@ -292,3 +292,22 @@
 2026-08-08 13:38:48 [INFO] [QUEUE] company=Company 1 status=PENDING queue_id=queue-1
 2026-08-08 13:38:48 [INFO] [PIPELINE] company=Company 1 completed success=true duration_ms=4.59
 2026-08-08 13:38:48 [INFO] [PIPELINE] Completed discovered=1 qualified=1 personalized=1 emails_generated=1 emails_queued=1 errors=0 duration_ms=6.10
+2026-08-08 14:40:51 [ERROR] [EMAIL] send_failed queue_id=6a76f29bfee7757346d94429 reason=smtp failure
+2026-08-08 14:40:51 [WARNING] email_failed id=6a76f29bfee7757346d94429 retry_count=1 error=smtp failure
+2026-08-08 14:40:51 [ERROR] [EMAIL] send_failed queue_id=6a76f29bfee7757346d94434 reason=smtp boom
+2026-08-08 14:40:51 [WARNING] email_failed id=6a76f29bfee7757346d94434 retry_count=1 error=smtp boom
+2026-08-08 14:40:51 [ERROR] [EMAIL] send_failed queue_id=6a76f29bfee7757346d94438 reason=nope
+2026-08-08 14:40:51 [WARNING] email_failed id=6a76f29bfee7757346d94438 retry_count=1 error=nope
+2026-08-08 14:40:51 [ERROR] [EMAIL] send_failed queue_id=6a76f29bfee7757346d9443a reason=recipient rejected
+2026-08-08 14:40:51 [WARNING] email_failed id=6a76f29bfee7757346d9443a retry_count=1 error=recipient rejected
+2026-08-08 14:40:51 [ERROR] [EMAIL] send_failed queue_id=6a76f29bfee7757346d9443c reason=Invalid recipient email
+2026-08-08 14:40:51 [WARNING] email_failed id=6a76f29bfee7757346d9443c retry_count=1 error=Invalid recipient email
+2026-08-08 14:40:51 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.91 success=true
+2026-08-08 14:40:51 [INFO] [EMAIL] send_started queue_id=6a76f29bfee7757346d9443d recipient=ada@acme.example
+2026-08-08 14:40:51 [INFO] [EMAIL] smtp_send to=ada@acme.example subject=Flutter idea for Acme
+2026-08-08 14:40:51 [INFO] [EMAIL] smtp_delivered to=ada@acme.example
+2026-08-08 14:40:51 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.69 success=true
+2026-08-08 14:40:51 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.47 success=true
+2026-08-08 14:40:51 [INFO] email_sent id=6a76f29bfee7757346d9443d status=SENT
+2026-08-08 14:40:51 [INFO] [EMAIL] sent queue_id=6a76f29bfee7757346d9443d recipient=ada@acme.example
+2026-08-08 14:40:51 [ERROR] [EMAIL] send_failed queue_id=6a76f29bfee7757346d9443e reason=boom with *** leaked

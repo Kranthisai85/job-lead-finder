@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import CompaniesPage from "./pages/CompaniesPage";
 import EmailQueuePage from "./pages/EmailQueuePage";
 import HomePage from "./pages/HomePage";
+import ProfilePage from "./pages/ProfilePage";
 
 export default function App() {
   return (
@@ -10,6 +11,7 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/companies" element={<CompaniesPage />} />
       <Route path="/email-queue" element={<EmailQueuePage />} />
+      <Route path="/profile" element={<ProfilePage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

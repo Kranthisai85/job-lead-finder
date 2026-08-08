@@ -3,7 +3,8 @@ import { NavLink } from "react-router-dom";
 const navItems = [
   { to: "/", label: "Dashboard" },
   { to: "/companies", label: "Companies" },
-  { to: "/email-queue", label: "Email Queue" }
+  { to: "/email-queue", label: "Email Queue" },
+  { to: "/profile", label: "Profile" }
 ];
 
 export default function Sidebar() {

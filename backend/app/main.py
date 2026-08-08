@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.api import router as api_router
 from app.api.v1.companies import router as companies_router
 from app.api.v1.email_queue import router as email_queue_router
+from app.api.v1.profile import router as profile_router
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logger import get_logger, setup_logging
@@ -56,6 +57,7 @@ def create_app() -> FastAPI:
     application.include_router(api_router)
     application.include_router(companies_router, prefix="/api/v1")
     application.include_router(email_queue_router, prefix="/api/v1")
+    application.include_router(profile_router, prefix="/api/v1")
 
     return application
 

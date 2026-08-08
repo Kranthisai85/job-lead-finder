@@ -25,6 +25,7 @@ from app.email_queue.document import EmailQueueEntry
 from app.email_queue.repository import QueueRepository
 from app.email_queue.service import EmailQueueService
 from app.email_queue.types import EmailQueueStatus
+from app.models.sender_profile import SenderProfileDocument
 from app.scheduler.jobs import DailyLeadGenerationJob
 
 
@@ -32,9 +33,13 @@ from app.scheduler.jobs import DailyLeadGenerationJob
 async def queue_db() -> AsyncIterator[Any]:
     client = AsyncMongoMockClient()
     database = client["lead_finder_smtp_test"]
-    await init_beanie(database=database, document_models=[EmailQueueEntry])
+    await init_beanie(
+        database=database,
+        document_models=[EmailQueueEntry, SenderProfileDocument],
+    )
     yield database
     await EmailQueueEntry.delete_all()
+    await SenderProfileDocument.delete_all()
     client.close()
 
 
