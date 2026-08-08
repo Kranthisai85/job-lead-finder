@@ -84,19 +84,22 @@ async def test_list_pending_includes_company_qualification(api_client: AsyncClie
 
 
 @pytest.mark.asyncio
-async def test_approve_transitions_pending_to_approved(api_client: AsyncClient) -> None:
+async def test_approve_and_sends_in_one_step(api_client: AsyncClient) -> None:
+    """Dashboard Approve now approves + sends (dry_run marks SENT)."""
     item_id = await _seed_pending_with_company()
 
     response = await api_client.post(f"/api/v1/email-queue/{item_id}/approve")
     assert response.status_code == 200
     body = response.json()
     assert body["success"] is True
-    assert body["data"]["status"] == "APPROVED"
+    assert body["data"]["status"] == "SENT"
     assert body["data"]["approved_at"] is not None
+    assert body["data"]["sent_at"] is not None
+    assert "sent" in body["message"].lower()
 
+    # SENT items leave the review queue.
     pending = await api_client.get("/api/v1/email-queue/pending")
-    assert pending.json()["data"]["total"] == 1
-    assert pending.json()["data"]["items"][0]["status"] == "APPROVED"
+    assert pending.json()["data"]["total"] == 0
 
 
 @pytest.mark.asyncio
@@ -134,9 +137,13 @@ async def test_sender_does_not_process_pending(api_client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_ready_to_send_and_send_endpoints(api_client: AsyncClient) -> None:
+async def test_ready_to_send_and_send_endpoints_still_work(api_client: AsyncClient) -> None:
+    """Lower-level endpoints remain for retries / tooling."""
     item_id = await _seed_pending_with_company()
-    await api_client.post(f"/api/v1/email-queue/{item_id}/approve")
+    # Use service-level approve only (no send) to set up READY_TO_SEND path.
+    approved = await EmailQueueService().approve(item_id)
+    assert approved is not None
+    assert approved.status.value == "APPROVED"
 
     ready = await api_client.post(f"/api/v1/email-queue/{item_id}/ready-to-send")
     assert ready.status_code == 200
@@ -146,7 +153,6 @@ async def test_ready_to_send_and_send_endpoints(api_client: AsyncClient) -> None
     conflict = await api_client.post(f"/api/v1/email-queue/{pending_id}/send")
     assert conflict.status_code == 409
 
-    # Default dry_run=True marks SENT without contacting real SMTP.
     sent = await api_client.post(f"/api/v1/email-queue/{item_id}/send")
     assert sent.status_code == 200
     body = sent.json()

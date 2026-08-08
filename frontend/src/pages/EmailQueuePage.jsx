@@ -2,13 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import Layout from "../components/Layout";
-import {
-  approveEmail,
-  fetchPendingEmails,
-  markReadyToSend,
-  sendEmail,
-  skipEmail
-} from "../services/emailQueueService";
+import { approveEmail, fetchPendingEmails, skipEmail } from "../services/emailQueueService";
 
 function StatusBadge({ status }) {
   const toneByStatus = {
@@ -48,16 +42,28 @@ export default function EmailQueuePage() {
   const approveMutation = useMutation({
     mutationFn: approveEmail,
     onSuccess: async (response, itemId) => {
-      setActionError("");
-      setActionMessage("Approved — mark Ready to Send when you want delivery.");
-      setLocalStatus((current) => ({
-        ...current,
-        [itemId]: response?.data?.status || "APPROVED"
-      }));
+      const status = response?.data?.status || "SENT";
+      setLocalStatus((current) => ({ ...current, [itemId]: status }));
+      if (status === "SENT") {
+        setActionError("");
+        setActionMessage(response?.message || "Approved and sent.");
+      } else if (status === "FAILED") {
+        setActionMessage("");
+        setActionError(
+          response?.data?.error_message ||
+            response?.message ||
+            "Approved but send failed. Check SMTP settings."
+        );
+      } else {
+        setActionError("");
+        setActionMessage(response?.message || "Approved.");
+      }
       await invalidateQueue();
     },
     onError: (mutationError) => {
-      setActionError(mutationError.response?.data?.message || "Unable to approve email.");
+      setActionError(
+        mutationError.response?.data?.message || "Unable to approve and send email."
+      );
     }
   });
 
@@ -77,66 +83,10 @@ export default function EmailQueuePage() {
     }
   });
 
-  const readyMutation = useMutation({
-    mutationFn: markReadyToSend,
-    onSuccess: async (response, itemId) => {
-      setActionError("");
-      setActionMessage("Marked Ready to Send — use Send to deliver via SMTP.");
-      setLocalStatus((current) => ({
-        ...current,
-        [itemId]: response?.data?.status || "READY_TO_SEND"
-      }));
-      await invalidateQueue();
-    },
-    onError: (mutationError) => {
-      setActionError(
-        mutationError.response?.data?.message || "Unable to mark ready to send."
-      );
-    }
-  });
-
-  const sendMutation = useMutation({
-    mutationFn: sendEmail,
-    onSuccess: async (response, itemId) => {
-      setActionError("");
-      const payload = response?.data;
-      if (payload?.success) {
-        setActionMessage(`Sent to ${payload.recipient || "recipient"}.`);
-        setLocalStatus((current) => ({
-          ...current,
-          [itemId]: payload?.status || "SENT"
-        }));
-      } else {
-        setActionError(payload?.error || response?.message || "Send failed.");
-        setLocalStatus((current) => ({
-          ...current,
-          [itemId]: payload?.status || "FAILED"
-        }));
-      }
-      await invalidateQueue();
-    },
-    onError: (mutationError) => {
-      const payload = mutationError.response?.data;
-      setActionError(payload?.message || payload?.data?.error || "Unable to send email.");
-      if (payload?.data?.status) {
-        setLocalStatus((current) => ({
-          ...current,
-          [sendMutation.variables]: payload.data.status
-        }));
-      }
-    }
-  });
-
   const items = data?.data?.items ?? [];
   const busyId =
-    approveMutation.isPending ||
-    skipMutation.isPending ||
-    readyMutation.isPending ||
-    sendMutation.isPending
-      ? approveMutation.variables ||
-        skipMutation.variables ||
-        readyMutation.variables ||
-        sendMutation.variables
+    approveMutation.isPending || skipMutation.isPending
+      ? approveMutation.variables || skipMutation.variables
       : null;
 
   return (
@@ -145,8 +95,7 @@ export default function EmailQueuePage() {
         <div>
           <h2 className="text-2xl font-semibold text-white">Email Queue</h2>
           <p className="text-sm text-slate-400">
-            PENDING → Approve → APPROVED → Ready to Send → READY_TO_SEND → Send. Human
-            approval is required before SMTP delivery.
+            Review pending drafts, then Approve &amp; Send in one click (or Skip).
           </p>
         </div>
 
@@ -258,48 +207,26 @@ export default function EmailQueuePage() {
                   </div>
                 </div>
 
-                <div className="mt-5 flex flex-wrap gap-3">
-                  {displayStatus === "PENDING" ? (
-                    <>
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => approveMutation.mutate(item.id)}
-                        className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => skipMutation.mutate(item.id)}
-                        className="rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Skip
-                      </button>
-                    </>
-                  ) : null}
-                  {displayStatus === "APPROVED" ? (
+                {displayStatus === "PENDING" ? (
+                  <div className="mt-5 flex flex-wrap gap-3">
                     <button
                       type="button"
                       disabled={isBusy}
-                      onClick={() => readyMutation.mutate(item.id)}
-                      className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => approveMutation.mutate(item.id)}
+                      className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Ready to Send
+                      Approve &amp; Send
                     </button>
-                  ) : null}
-                  {displayStatus === "READY_TO_SEND" ? (
                     <button
                       type="button"
                       disabled={isBusy}
-                      onClick={() => sendMutation.mutate(item.id)}
-                      className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => skipMutation.mutate(item.id)}
+                      className="rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Send
+                      Skip
                     </button>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
               </article>
             );
           })}

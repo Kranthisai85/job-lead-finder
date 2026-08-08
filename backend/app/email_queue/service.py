@@ -117,10 +117,37 @@ class EmailQueueService:
         return PendingEmailReviewList(items=items, total=len(items))
 
     async def approve(self, item_id: str) -> EmailQueueItem | None:
+        """Approve only (PENDING → APPROVED). Prefer approve_and_send for dashboard."""
         try:
             return await self.approval.approve(item_id)
         except (LookupError, InvalidTransitionError):
             return None
+
+    async def approve_and_send(self, item_id: str) -> EmailQueueItem | None:
+        """One-click dashboard action: PENDING → APPROVED → READY_TO_SEND → send.
+
+        Reuses existing transition + send services. Does not bypass SMTP gates
+        (DRY_RUN / SMTP_ENABLED still apply inside EmailSender).
+        """
+        approved = await self.approve(item_id)
+        if approved is None:
+            return None
+
+        ready = await self.mark_ready_to_send(item_id)
+        if ready is None:
+            entry = await self.repository.find_by_id_item(item_id)
+            return self.repository.to_item(entry) if entry else approved
+
+        send_result = await self.send_one(item_id)
+        self.logger.info(
+            "[EMAIL] approve_and_send queue_id=%s send_success=%s status=%s error=%s",
+            item_id,
+            send_result.success,
+            send_result.status.value if send_result.status else None,
+            send_result.error,
+        )
+        entry = await self.repository.find_by_id_item(item_id)
+        return self.repository.to_item(entry) if entry else ready
 
     async def skip(self, item_id: str, *, reason: str | None = None) -> EmailQueueItem | None:
         try:

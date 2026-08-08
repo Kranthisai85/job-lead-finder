@@ -138,8 +138,7 @@ def test_e2e_dashboard_exposes_required_actions() -> None:
         "FAILED",
         "SKIPPED",
         "Approve",
-        "Ready to Send",
-        "Send",
+        "Skip",
         "qualification_score",
         "qualification_status",
         "qualification_reasons",
@@ -147,7 +146,7 @@ def test_e2e_dashboard_exposes_required_actions() -> None:
     ):
         assert token in page_text
 
-    for fn in ("approveEmail", "skipEmail", "markReadyToSend", "sendEmail"):
+    for fn in ("approveEmail", "skipEmail"):
         assert fn in service_text
 
 

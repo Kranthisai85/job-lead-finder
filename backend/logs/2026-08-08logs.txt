@@ -1,0 +1,294 @@
+2026-08-08 13:38:48 [ERROR] [EMAIL] send_failed queue_id=6a76e41076b09d88fbed521a reason=smtp rejected
+2026-08-08 13:38:48 [WARNING] email_failed id=6a76e41076b09d88fbed521a retry_count=1 error=smtp rejected
+2026-08-08 13:38:48 [INFO] [PIPELINE] Starting run_id=c309d597-67d7-477f-b496-9cb276e5c7f7 service=LeadGenerationService
+2026-08-08 13:38:48 [INFO] [PIPELINE] Starting lead generation run limit=1 persist=True generate_emails=True enqueue_emails=True
+2026-08-08 13:38:48 [INFO] [PIPELINE] Discovered companies count=1
+2026-08-08 13:38:48 [INFO] [PIPELINE] Processing company=Company 1 website=https://company1.example
+2026-08-08 13:38:48 [INFO] [QUALIFICATION] company=Company 1 score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-08 13:38:48 [INFO] repository=CompanyRepository collection=companies operation=find_one duration_ms=0.18 success=true
+2026-08-08 13:38:48 [INFO] repository=CompanyRepository collection=companies operation=find_one duration_ms=0.23 success=true
+2026-08-08 13:38:48 [INFO] repository=CompanyRepository collection=companies operation=create duration_ms=1.03 success=true
+2026-08-08 13:38:48 [INFO] repository=CompanyRepository collection=companies operation=update duration_ms=1.63 success=true
+2026-08-08 13:38:48 [INFO] repository=ContactRepository collection=contacts operation=find_one duration_ms=0.15 success=true
+2026-08-08 13:38:48 [INFO] repository=ContactRepository collection=contacts operation=find_one duration_ms=0.17 success=true
+2026-08-08 13:38:48 [INFO] repository=ContactRepository collection=contacts operation=create duration_ms=0.65 success=true
+2026-08-08 13:38:48 [INFO] persist_completed company=Company 1 company_id=6a76e41076b09d88fbed521d created=True updated=False contacts_created=1 contacts_updated=0 contacts_skipped=0 decision_makers_created=0 decision_makers_updated=0 founders_created=0 founders_updated=0 hiring_opportunities_created=0 hiring_opportunities_updated=0 company_intelligence_saved=False opportunity_score_saved=False email_pattern_saved=False duplicates_skipped=0 errors=0 duration_ms=8.14
+2026-08-08 13:38:48 [INFO] [FLUTTER] company=Company 1 evidence=true
+2026-08-08 13:38:48 [INFO] [PERSONALIZATION] company=Company 1 completed
+2026-08-08 13:38:48 [INFO] [AI] company=Company 1 generation_started
+2026-08-08 13:38:48 [INFO] [AI] company=Company 1 source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.63 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed521f company_id=6a76e41076b09d88fbed521d contact_id=ada@acme.example status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed521f recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] [QUEUE] company=Company 1 status=PENDING queue_id=6a76e41076b09d88fbed521f
+2026-08-08 13:38:48 [INFO] [PIPELINE] company=Company 1 completed success=true duration_ms=14.46
+2026-08-08 13:38:48 [INFO] [PIPELINE] Completed discovered=1 qualified=1 personalized=1 emails_generated=1 emails_queued=1 errors=0 duration_ms=16.27
+2026-08-08 13:38:48 [INFO] [PIPELINE] Completed run_id=c309d597-67d7-477f-b496-9cb276e5c7f7 success=True processed=1 queued=1 duration_ms=16.27
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.61 success=true
+2026-08-08 13:38:48 [INFO] [EMAIL] send_started queue_id=6a76e41076b09d88fbed5220 recipient=ada@acme.example
+2026-08-08 13:38:48 [INFO] [EMAIL] dry_run to=ada@acme.example subject=Flutter idea for Acme body_length=106
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.59 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.13 success=true
+2026-08-08 13:38:48 [INFO] email_sent id=6a76e41076b09d88fbed5220 status=SENT
+2026-08-08 13:38:48 [INFO] [EMAIL] sent queue_id=6a76e41076b09d88fbed5220 recipient=ada@acme.example
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.71 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.69 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5221 company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5221 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.72 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5222 company_id=company-flutterpulse contact_id=maya@flutterpulse.example status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5222 recipient=maya@flutterpulse.example source=ollama
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.59 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.92 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5223 company_id=company-1 contact_id=ada@acme.example status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5223 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.68 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5224 company_id=company-acme contact_id=ada@acme.example status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5224 recipient=ada@acme.example source=ollama
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.68 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5225 company_id=company-nova contact_id=sam@novaledger.example status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5225 recipient=sam@novaledger.example source=ollama
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.56 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.50 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.63 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5226 company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5226 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.60 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.44 success=true
+2026-08-08 13:38:48 [INFO] email_approved id=6a76e41076b09d88fbed5226 status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.24 success=true
+2026-08-08 13:38:48 [INFO] email_rejected id=6a76e41076b09d88fbed5226 status=CANCELLED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.56 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5227 company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5227 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.54 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.14 success=true
+2026-08-08 13:38:48 [INFO] email_skipped id=6a76e41076b09d88fbed5227 status=SKIPPED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.56 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.61 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.21 success=true
+2026-08-08 13:38:48 [INFO] [EMAIL] batch_complete attempted=0 sent=0 failed=0 skipped=0
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.14 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.07 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.06 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.07 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.17 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.09 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.09 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.11 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.63 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5228 company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5228 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.98 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.72 success=true
+2026-08-08 13:38:48 [INFO] email_approved id=6a76e41076b09d88fbed5228 status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.15 success=true
+2026-08-08 13:38:48 [INFO] [EMAIL] batch_complete attempted=0 sent=0 failed=0 skipped=0
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.51 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.03 success=true
+2026-08-08 13:38:48 [INFO] email_ready_to_send id=6a76e41076b09d88fbed5228 status=READY_TO_SEND
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.26 success=true
+2026-08-08 13:38:48 [INFO] [EMAIL] send_started queue_id=6a76e41076b09d88fbed5228 recipient=ada@acme.example
+2026-08-08 13:38:48 [INFO] [EMAIL] dry_run to=ada@acme.example subject=Flutter idea for Acme body_length=89
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.54 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=0.96 success=true
+2026-08-08 13:38:48 [INFO] email_sent id=6a76e41076b09d88fbed5228 status=SENT
+2026-08-08 13:38:48 [INFO] [EMAIL] sent queue_id=6a76e41076b09d88fbed5228 recipient=ada@acme.example
+2026-08-08 13:38:48 [INFO] [EMAIL] batch_complete attempted=1 sent=1 failed=0 skipped=0
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.11 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.10 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.11 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.08 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.10 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.08 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.06 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.18 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.55 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5229 company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5229 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.72 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.01 success=true
+2026-08-08 13:38:48 [INFO] email_approved id=6a76e41076b09d88fbed5229 status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.51 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.55 success=true
+2026-08-08 13:38:48 [INFO] email_ready_to_send id=6a76e41076b09d88fbed5229 status=READY_TO_SEND
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.71 success=true
+2026-08-08 13:38:48 [INFO] [EMAIL] send_started queue_id=6a76e41076b09d88fbed5229 recipient=ada@acme.example
+2026-08-08 13:38:48 [INFO] [EMAIL] smtp_send to=ada@acme.example subject=Flutter idea for Acme
+2026-08-08 13:38:48 [INFO] [EMAIL] smtp_delivered to=ada@acme.example
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.52 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.00 success=true
+2026-08-08 13:38:48 [INFO] email_sent id=6a76e41076b09d88fbed5229 status=SENT
+2026-08-08 13:38:48 [INFO] [EMAIL] sent queue_id=6a76e41076b09d88fbed5229 recipient=ada@acme.example
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.53 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed522a company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed522a recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.47 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.00 success=true
+2026-08-08 13:38:48 [INFO] email_approved id=6a76e41076b09d88fbed522a status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.60 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.22 success=true
+2026-08-08 13:38:48 [INFO] email_ready_to_send id=6a76e41076b09d88fbed522a status=READY_TO_SEND
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.51 success=true
+2026-08-08 13:38:48 [INFO] [EMAIL] send_started queue_id=6a76e41076b09d88fbed522a recipient=ada@acme.example
+2026-08-08 13:38:48 [INFO] [EMAIL] smtp_send to=ada@acme.example subject=Flutter idea for Acme
+2026-08-08 13:38:48 [ERROR] [EMAIL] send_failed queue_id=6a76e41076b09d88fbed522a reason=smtp failure
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.85 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.01 success=true
+2026-08-08 13:38:48 [INFO] email_failed id=6a76e41076b09d88fbed522a status=FAILED
+2026-08-08 13:38:48 [WARNING] email_failed id=6a76e41076b09d88fbed522a retry_count=1 error=smtp failure
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.84 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.38 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.63 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed522b company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed522b recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.61 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed522c company_id=company-2 contact_id=contact-2 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed522c recipient=grace@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.50 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=0.98 success=true
+2026-08-08 13:38:48 [INFO] email_approved id=6a76e41076b09d88fbed522c status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.15 success=true
+2026-08-08 13:38:48 [INFO] [EMAIL] batch_complete attempted=0 sent=0 failed=0 skipped=0
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.51 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.39 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.55 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed522d company_id=company-1 contact_id=contact-1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed522d recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.65 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.19 success=true
+2026-08-08 13:38:48 [INFO] email_approved id=6a76e41076b09d88fbed522d status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.53 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.04 success=true
+2026-08-08 13:38:48 [INFO] email_ready_to_send id=6a76e41076b09d88fbed522d status=READY_TO_SEND
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.27 success=true
+2026-08-08 13:38:48 [INFO] [EMAIL] send_started queue_id=6a76e41076b09d88fbed522d recipient=ada@acme.example
+2026-08-08 13:38:48 [INFO] [EMAIL] dry_run to=ada@acme.example subject=Flutter idea for Acme body_length=89
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.54 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.03 success=true
+2026-08-08 13:38:48 [INFO] email_sent id=6a76e41076b09d88fbed522d status=SENT
+2026-08-08 13:38:48 [INFO] [EMAIL] sent queue_id=6a76e41076b09d88fbed522d recipient=ada@acme.example
+2026-08-08 13:38:48 [INFO] [EMAIL] batch_complete attempted=1 sent=1 failed=0 skipped=0
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.16 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.16 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.17 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.18 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.10 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.09 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.19 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=count duration_ms=0.19 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.56 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed522e company_id=c1 contact_id=t1 status=PENDING
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.64 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed522f company_id=c2 contact_id=t2 status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.31 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_many duration_ms=0.21 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.61 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5230 company_id=c1 contact_id=t1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5230 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.55 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.04 success=true
+2026-08-08 13:38:48 [INFO] email_approved id=6a76e41076b09d88fbed5230 status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.65 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5231 company_id=c1 contact_id=t1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5231 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.96 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.38 success=true
+2026-08-08 13:38:48 [INFO] email_skipped id=6a76e41076b09d88fbed5231 status=SKIPPED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.65 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5232 company_id=c1 contact_id=t1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5232 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=1.01 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.71 success=true
+2026-08-08 13:38:48 [INFO] email_approved id=6a76e41076b09d88fbed5232 status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.55 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.37 success=true
+2026-08-08 13:38:48 [INFO] email_ready_to_send id=6a76e41076b09d88fbed5232 status=READY_TO_SEND
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.60 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5233 company_id=c1 contact_id=t1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5233 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.54 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.05 success=true
+2026-08-08 13:38:48 [INFO] email_approved id=6a76e41076b09d88fbed5233 status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.90 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.16 success=true
+2026-08-08 13:38:48 [INFO] email_ready_to_send id=6a76e41076b09d88fbed5233 status=READY_TO_SEND
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.64 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.41 success=true
+2026-08-08 13:38:48 [INFO] email_sent id=6a76e41076b09d88fbed5233 status=SENT
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.59 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5234 company_id=c1 contact_id=t1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5234 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.72 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.31 success=true
+2026-08-08 13:38:48 [INFO] email_approved id=6a76e41076b09d88fbed5234 status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.64 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.06 success=true
+2026-08-08 13:38:48 [INFO] email_ready_to_send id=6a76e41076b09d88fbed5234 status=READY_TO_SEND
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.52 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.34 success=true
+2026-08-08 13:38:48 [INFO] email_failed id=6a76e41076b09d88fbed5234 status=FAILED
+2026-08-08 13:38:48 [WARNING] email_failed id=6a76e41076b09d88fbed5234 retry_count=1 error=boom
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.60 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5235 company_id=c1 contact_id=t1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5235 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.67 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.20 success=true
+2026-08-08 13:38:48 [INFO] email_approved id=6a76e41076b09d88fbed5235 status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.59 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.14 success=true
+2026-08-08 13:38:48 [INFO] email_ready_to_send id=6a76e41076b09d88fbed5235 status=READY_TO_SEND
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.56 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.45 success=true
+2026-08-08 13:38:48 [INFO] email_sent id=6a76e41076b09d88fbed5235 status=SENT
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.65 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.63 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5236 company_id=c1 contact_id=t1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5236 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.60 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.70 success=true
+2026-08-08 13:38:48 [INFO] email_approved id=6a76e41076b09d88fbed5236 status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.66 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.26 success=true
+2026-08-08 13:38:48 [INFO] email_ready_to_send id=6a76e41076b09d88fbed5236 status=READY_TO_SEND
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.56 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.46 success=true
+2026-08-08 13:38:48 [INFO] email_sent id=6a76e41076b09d88fbed5236 status=SENT
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.56 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.63 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5237 company_id=c1 contact_id=t1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5237 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.58 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.09 success=true
+2026-08-08 13:38:48 [INFO] email_approved id=6a76e41076b09d88fbed5237 status=APPROVED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.55 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.25 success=true
+2026-08-08 13:38:48 [INFO] email_ready_to_send id=6a76e41076b09d88fbed5237 status=READY_TO_SEND
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.51 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.62 success=true
+2026-08-08 13:38:48 [INFO] email_failed id=6a76e41076b09d88fbed5237 status=FAILED
+2026-08-08 13:38:48 [WARNING] email_failed id=6a76e41076b09d88fbed5237 retry_count=1 error=boom
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.59 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.59 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5238 company_id=c1 contact_id=t1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5238 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.94 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=update duration_ms=1.48 success=true
+2026-08-08 13:38:48 [INFO] email_skipped id=6a76e41076b09d88fbed5238 status=SKIPPED
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.80 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=create duration_ms=0.54 success=true
+2026-08-08 13:38:48 [INFO] email_queued id=6a76e41076b09d88fbed5239 company_id=c1 contact_id=t1 status=PENDING
+2026-08-08 13:38:48 [INFO] email_queue_enqueue id=6a76e41076b09d88fbed5239 recipient=ada@acme.example source=fallback
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.51 success=true
+2026-08-08 13:38:48 [INFO] repository=QueueRepository collection=email_queue operation=find_by_id duration_ms=0.69 success=true
+2026-08-08 13:38:48 [INFO] [PIPELINE] Starting lead generation run limit=1 persist=True generate_emails=True enqueue_emails=True
+2026-08-08 13:38:48 [INFO] [PIPELINE] Discovered companies count=1
+2026-08-08 13:38:48 [INFO] [PIPELINE] Processing company=Company 1 website=https://company1.example
+2026-08-08 13:38:48 [INFO] [QUALIFICATION] company=Company 1 score=70 status=MEDIUM eligible=true reasons=No mobile app detected (+25); Product/software/startup company (+20); Founder/contact person discovered (+15); Valid email discovered (+10)
+2026-08-08 13:38:48 [INFO] [FLUTTER] company=Company 1 evidence=true
+2026-08-08 13:38:48 [INFO] [PERSONALIZATION] company=Company 1 completed
+2026-08-08 13:38:48 [INFO] [AI] company=Company 1 generation_started
+2026-08-08 13:38:48 [INFO] [AI] company=Company 1 source=fallback
+2026-08-08 13:38:48 [INFO] [QUEUE] company=Company 1 status=PENDING queue_id=queue-1
+2026-08-08 13:38:48 [INFO] [PIPELINE] company=Company 1 completed success=true duration_ms=4.59
+2026-08-08 13:38:48 [INFO] [PIPELINE] Completed discovered=1 qualified=1 personalized=1 emails_generated=1 emails_queued=1 errors=0 duration_ms=6.10

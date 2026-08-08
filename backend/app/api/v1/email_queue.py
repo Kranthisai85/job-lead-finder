@@ -5,7 +5,12 @@ from pydantic import BaseModel, Field
 from app.core.dependencies import get_email_queue_service
 from app.core.response import success_response
 from app.email_queue.service import EmailQueueService
-from app.email_queue.types import EmailQueueItem, PendingEmailReviewList, SendResult
+from app.email_queue.types import (
+    EmailQueueItem,
+    EmailQueueStatus,
+    PendingEmailReviewList,
+    SendResult,
+)
 from app.schemas.common import APIResponse
 
 router = APIRouter(prefix="/email-queue", tags=["email-queue"])
@@ -44,7 +49,8 @@ async def approve_email(
     item_id: str,
     service: EmailQueueService = Depends(get_email_queue_service),
 ) -> APIResponse[EmailQueueItem] | JSONResponse:
-    item = await service.approve(item_id)
+    """Approve and send in one step (PENDING → … → SENT/FAILED)."""
+    item = await service.approve_and_send(item_id)
     if item is None:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -55,8 +61,14 @@ async def approve_email(
                 "request_id": "",
             },
         )
+    if item.status == EmailQueueStatus.SENT:
+        message = "Email approved and sent successfully"
+    elif item.status == EmailQueueStatus.FAILED:
+        message = "Email approved but send failed"
+    else:
+        message = "Email approved"
     return success_response(
-        message="Email approved successfully",
+        message=message,
         data=item.model_dump(mode="json"),
     )
 
