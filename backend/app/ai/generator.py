@@ -56,7 +56,7 @@ class AIEmailGenerator:
         )
         if email.generation_source == "fallback" and not email.subject:
             email = email.model_copy(
-                update={"subject": f"Idea for {context.company_name}'s mobile experience"}
+                update={"subject": f"quick thought on {context.company_name}"}
             )
         return email
 
@@ -136,7 +136,7 @@ class AIEmailGenerator:
         ]
         body = "\n\n".join(part for part in body_parts if part.strip())
         return GeneratedEmail(
-            subject=f"Quick idea for {personalized.company_name}",
+            subject=f"quick thought on {personalized.company_name}",
             opening=personalized.personalized_opening,
             body=body,
             cta=personalized.cta_recommendation,

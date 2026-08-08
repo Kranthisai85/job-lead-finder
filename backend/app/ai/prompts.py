@@ -25,16 +25,44 @@ class EmailPromptContext:
     personalized_context: PersonalizedEmailContext
 
 
+NATURAL_WRITING_GUIDE = """
+Write like a real person sending a short cold email from their inbox — not like ChatGPT,
+a sales sequence, or a marketing template.
+
+Tone rules:
+- Sound casual-professional and specific. Prefer short sentences and plain words.
+- Subject should feel human (curious, concrete, lightly incomplete is fine). Max ~8 words.
+  Good: "quick thought on {company} mobile" / "native app for {company}?"
+  Bad: "Inquiry About Native Mobile App Development" / "Exploring Strategic Partnership Opportunities"
+- Opening: greet the person by first name if known, otherwise the company. One short line.
+- Body: 2–4 short sentences. Mention one real fact from the company data, then one clear idea.
+- CTA: one soft question. No pressure, no "synergy", no "next steps for our partnership".
+- signature must be exactly "{{sender_name}}"
+
+Hard bans (never write these):
+- "I hope this email finds you well"
+- "Greetings from ..."
+- "We recently launched ..." / "It's amazing to see ..."
+- "leverage", "utilize", "synergies", "cutting-edge", "robust", "seamless", "elevate"
+- "Would X be open to a short conversation about next steps for Y"
+- Bullet lists, markdown, emojis, exclamation overload, or fake personalization
+
+Facts:
+- Use only company facts provided below.
+- Do not invent contacts, technologies, websites, or Flutter/Dart evidence.
+- If Flutter/Dart evidence is "no", do not claim they already use Flutter/Dart.
+""".strip()
+
 EMAIL_JSON_SCHEMA = """
 Return ONLY a JSON object with exactly these keys (plain JSON, no markdown fences):
 {"subject":"string","opening":"string","body":"string","cta":"string","signature":"{{sender_name}}"}
-Keep each value concise. Do not include explanations or extra keys.
+Keep each value concise and human-sounding. Do not include explanations or extra keys.
 """.strip()
 
 FOLLOWUP_JSON_SCHEMA = """
 Return ONLY a JSON object with exactly these keys (plain JSON, no markdown fences):
 {"subject":"string","opening":"string","body":"string","cta":"string","signature":"{{sender_name}}"}
-Keep each value concise. Do not include explanations or extra keys.
+Keep each value concise and human-sounding. Do not include explanations or extra keys.
 """.strip()
 
 DEFAULT_EMAIL_REQUIRED_FIELDS: tuple[str, ...] = ("subject", "opening", "body", "cta")
@@ -101,9 +129,10 @@ def build_prompt_context(
 def build_email_prompt(context: EmailPromptContext) -> str:
     return _format_prompt(
         task=(
-            "Write a concise, professional cold outreach email for a Flutter/mobile "
-            "development agency. Use only the company facts provided below. "
-            "Do not invent contacts, technologies, websites, or Flutter/Dart evidence."
+            "Write one cold outreach email offering Flutter/mobile help. "
+            "It must read as if a founder typed it quickly between meetings — "
+            "natural, specific, and not AI-generated.\n\n"
+            f"{NATURAL_WRITING_GUIDE}"
         ),
         context=context,
         schema=EMAIL_JSON_SCHEMA,
@@ -112,7 +141,11 @@ def build_email_prompt(context: EmailPromptContext) -> str:
 
 def build_subject_prompt(context: EmailPromptContext) -> str:
     return _format_prompt(
-        task="Write only a compelling email subject line (max 12 words).",
+        task=(
+            "Write only a natural email subject line (max 8 words). "
+            "It should look human, not like a marketing campaign.\n\n"
+            f"{NATURAL_WRITING_GUIDE}"
+        ),
         context=context,
         schema='Return ONLY JSON: {"subject":"string"}',
     )
@@ -126,8 +159,10 @@ def build_followup_prompt(
 ) -> str:
     base = _format_prompt(
         task=(
-            f"Write a polite follow-up email sent {days_since_sent} days after "
-            f'the original message with subject "{previous_subject}".'
+            f"Write a short, human follow-up sent {days_since_sent} days after "
+            f'the original email with subject "{previous_subject}". '
+            "Keep it light — bump + one sentence reason to reply. No guilt trips.\n\n"
+            f"{NATURAL_WRITING_GUIDE}"
         ),
         context=context,
         schema=FOLLOWUP_JSON_SCHEMA,
@@ -145,6 +180,9 @@ def _format_prompt(*, task: str, context: EmailPromptContext, schema: str) -> st
 
     prompt = f"""
 {task}
+
+Use the facts below as raw notes only. Rewrite them in your own words — do not paste
+template phrases from "Value proposition", "Suggested CTA", or "Personalized opening".
 
 Company: {context.company_name}
 Website: {website}

@@ -129,6 +129,8 @@ def test_prompt_building_includes_required_fields() -> None:
     assert "Lead score:" in prompt
     assert "Flutter/Dart evidence: no" in prompt
     assert "Do not invent" in prompt
+    assert "not like ChatGPT" in prompt
+    assert "I hope this email finds you well" in prompt
     assert "subject" in prompt
 
 
@@ -921,7 +923,7 @@ async def test_fallback_email_content_unchanged() -> None:
     email = await AIEmailGenerator(client=client).generate_email(lead)
 
     assert email.generation_source == "fallback"
-    assert email.subject == f"Quick idea for {personalized.company_name}"
+    assert email.subject == f"quick thought on {personalized.company_name}"
     assert email.opening == personalized.personalized_opening
     assert email.cta == personalized.cta_recommendation
     assert personalized.mobile_app_opportunity in email.body

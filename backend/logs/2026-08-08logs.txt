@@ -311,3 +311,5 @@
 2026-08-08 14:40:51 [INFO] email_sent id=6a76f29bfee7757346d9443d status=SENT
 2026-08-08 14:40:51 [INFO] [EMAIL] sent queue_id=6a76f29bfee7757346d9443d recipient=ada@acme.example
 2026-08-08 14:40:51 [ERROR] [EMAIL] send_failed queue_id=6a76f29bfee7757346d9443e reason=boom with *** leaked
+2026-08-08 15:09:11 [ERROR] [EMAIL] send_failed queue_id=6a76f93f19827a9ab1b595ce reason=smtp failure
+2026-08-08 15:09:11 [WARNING] email_failed id=6a76f93f19827a9ab1b595ce retry_count=1 error=smtp failure
