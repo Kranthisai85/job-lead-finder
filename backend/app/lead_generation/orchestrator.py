@@ -7,8 +7,9 @@ from typing import TypeVar
 from app.ai.service import AIEmailService
 from app.ai.types import GeneratedEmail
 from app.collectors.types import CompanyLead
-from app.contact_discovery.validators import is_valid_email
+from app.contact_discovery.validators import is_outbound_safe_email
 from app.core.logger import get_logger
+from app.email_queue.deliverability import domain_accepts_mail, email_domain
 from app.email_queue.service import EmailQueueService
 from app.email_queue.types import EmailQueueItem
 from app.lead_generation.statistics import build_statistics, finalize_report
@@ -151,6 +152,22 @@ class LeadGenerationOrchestrator:
             seed.website,
         )
 
+        if await self.email_queue_service.is_duplicate_company(website=seed.website):
+            result.warnings.append(
+                "Skipped: company already in email queue "
+                "(pending/skipped/approved/sent/failed)"
+            )
+            result.stage_timings.append(
+                StageTiming(stage="duplicate_skip", duration_ms=0.0, success=True)
+            )
+            result.duration_ms = round((perf_counter() - started) * 1000, 2)
+            self.logger.info(
+                "[PIPELINE] company=%s skipped reason=duplicate_company website=%s",
+                seed.name,
+                seed.website,
+            )
+            return result
+
         complete_lead, pipeline_timing = await self._run_stage(
             "pipeline",
             self.pipeline_service.process(seed),
@@ -269,6 +286,26 @@ class LeadGenerationOrchestrator:
             if not recipient:
                 result.warnings.append("No contact email available for queue")
                 self.logger.info("[QUEUE] company=%s skipped reason=no_recipient", seed.name)
+            elif await self.email_queue_service.is_duplicate_recipient(
+                recipient_email=recipient["email"]
+            ):
+                result.warnings.append(
+                    f"Skipped: recipient {recipient['email']} already in email queue"
+                )
+                self.logger.info(
+                    "[QUEUE] company=%s skipped reason=duplicate_recipient email=%s",
+                    seed.name,
+                    recipient["email"],
+                )
+            elif not await domain_accepts_mail(email_domain(recipient["email"])):
+                result.warnings.append(
+                    f"Skipped: no mail (MX) records for {email_domain(recipient['email'])}"
+                )
+                self.logger.info(
+                    "[QUEUE] company=%s skipped reason=no_mx email=%s",
+                    seed.name,
+                    recipient["email"],
+                )
             elif not eligible:
                 result.warnings.append(
                     f"Lead score {outbound_score.score} below MIN_LEAD_SCORE "
@@ -401,24 +438,34 @@ class LeadGenerationOrchestrator:
 
     @staticmethod
     def _best_recipient(lead: CompleteLead) -> dict[str, str] | None:
+        from app.contact_discovery.validators import normalize_person_name
+
+        def _display_name(full_name: str | None, first_name: str | None) -> str:
+            return (
+                normalize_person_name(full_name)
+                or normalize_person_name(first_name)
+                or "there"
+            )
+
+        # Prefer person / founder-style addresses. Never cold-send hello@ / info@ / support@.
         if lead.lead_intelligence and lead.lead_intelligence.best_contact:
             contact = lead.lead_intelligence.best_contact
-            if contact.email and is_valid_email(contact.email):
+            if contact.email and is_outbound_safe_email(contact.email):
                 return {
-                    "name": contact.full_name or contact.first_name or "there",
+                    "name": _display_name(contact.full_name, contact.first_name),
                     "email": contact.email,
                 }
         if lead.contacts and lead.contacts.contacts:
             ranked = sorted(lead.contacts.contacts, key=lambda item: item.confidence, reverse=True)
             for contact in ranked:
-                if contact.email and is_valid_email(contact.email):
+                if contact.email and is_outbound_safe_email(contact.email):
                     return {
-                        "name": contact.full_name or contact.first_name or "there",
+                        "name": _display_name(contact.full_name, contact.first_name),
                         "email": contact.email,
                     }
         if lead.contacts and lead.contacts.emails:
             for email in lead.contacts.emails:
-                if is_valid_email(email):
+                if is_outbound_safe_email(email):
                     return {"name": "there", "email": email}
         return None
 

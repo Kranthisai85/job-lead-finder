@@ -3,11 +3,14 @@ from __future__ import annotations
 import re
 
 from app.ai.types import GeneratedEmail
+from app.app_settings.service import AppSettingsService
+from app.contact_discovery.validators import is_outbound_safe_email
 from app.core.daily_logging import ensure_daily_run_handler
 from app.core.logger import get_logger
 from app.email.exceptions import SmtpError
 from app.email.smtp_client import sanitize_smtp_error_message
 from app.email_queue.approval import ApprovalService
+from app.email_queue.deliverability import domain_accepts_mail, email_domain
 from app.email_queue.document import EmailQueueEntry
 from app.email_queue.queue import compose_email_body
 from app.email_queue.repository import QueueRepository
@@ -24,6 +27,7 @@ from app.email_queue.types import (
 from app.repositories.company_repository import CompanyRepository
 from app.sender_profile.service import SenderProfileService
 from app.sender_profile.types import finalize_body_for_send
+from app.utils.url import canonical_lead_website
 
 _RECIPIENT_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -38,13 +42,71 @@ class EmailQueueService:
         sender: EmailSender | None = None,
         company_repository: CompanyRepository | None = None,
         approval_service: ApprovalService | None = None,
+        app_settings_service: AppSettingsService | None = None,
     ) -> None:
         self.repository = repository or QueueRepository()
         self.sender = sender or EmailSender()
         self.company_repository = company_repository or CompanyRepository()
         self.approval = approval_service or ApprovalService(repository=self.repository)
         self.sender_profile = SenderProfileService()
+        self.app_settings = app_settings_service or AppSettingsService()
         self.logger = get_logger(__name__)
+
+    async def is_duplicate_company(self, *, website: str) -> bool:
+        """True when settings say skip duplicates and this website is already queued."""
+        settings = await self.app_settings.get_settings()
+        if not settings.skip_duplicate_companies:
+            return False
+        keys = await self._company_lookup_keys(website)
+        known = await self.repository.exists_known_for_company_keys(keys)
+        if known:
+            self.logger.info(
+                "[QUEUE] duplicate_company website=%s keys=%s",
+                website,
+                keys,
+            )
+        return known
+
+    async def is_duplicate_recipient(self, *, recipient_email: str) -> bool:
+        """True when settings say skip duplicates and this email was already queued."""
+        settings = await self.app_settings.get_settings()
+        if not settings.skip_duplicate_companies:
+            return False
+        known = await self.repository.exists_known_for_recipient_email(recipient_email)
+        if known:
+            self.logger.info(
+                "[QUEUE] duplicate_recipient email=%s",
+                recipient_email,
+            )
+        return known
+
+    async def _company_lookup_keys(self, website: str) -> list[str]:
+        canonical = canonical_lead_website(website or "")
+        keys: list[str] = []
+        if canonical:
+            keys.append(canonical)
+            host_key = canonical.replace("https://", "").replace("http://", "").strip("/")
+            if host_key:
+                keys.append(host_key)
+            company = await self.company_repository.find_one({"website": canonical})
+            if company is not None and company.id is not None:
+                keys.append(str(company.id))
+            # Also match older rows that stored the raw seed website.
+            raw = (website or "").strip()
+            if raw and raw not in keys:
+                keys.append(raw)
+                raw_host = raw.replace("https://", "").replace("http://", "").strip("/")
+                if raw_host and raw_host not in keys:
+                    keys.append(raw_host)
+        # Preserve order, drop empties/dupes.
+        seen: set[str] = set()
+        unique: list[str] = []
+        for key in keys:
+            value = key.strip()
+            if value and value not in seen:
+                seen.add(value)
+                unique.append(value)
+        return unique
 
     async def enqueue(
         self,
@@ -254,6 +316,8 @@ class EmailQueueService:
             return "Missing recipient email"
         if not _RECIPIENT_EMAIL_RE.match(email):
             return "Invalid recipient email"
+        if not is_outbound_safe_email(email):
+            return "Recipient is a generic inbox (hello@/info@/support@) — skip to avoid bounces"
         if not (entry.subject or "").strip():
             return "Missing email subject"
         if not (entry.body or "").strip():
@@ -293,6 +357,26 @@ class EmailQueueService:
                 status=EmailQueueStatus.FAILED,
                 error=validation_error,
                 errors=[f"{item_id}: {validation_error}"],
+            )
+
+        domain = email_domain(recipient or "")
+        if domain and not await domain_accepts_mail(domain):
+            message = f"No MX records for domain '{domain}'"
+            self.logger.error(
+                "[EMAIL] send_failed queue_id=%s reason=%s",
+                item_id,
+                message,
+            )
+            await self.approval.mark_failed(item_id, error=message)
+            return SendResult(
+                failed=1,
+                attempted=1,
+                success=False,
+                queue_id=item_id,
+                recipient=recipient,
+                status=EmailQueueStatus.FAILED,
+                error=message,
+                errors=[f"{item_id}: {message}"],
             )
 
         self.logger.info(

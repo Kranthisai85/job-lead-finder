@@ -6,6 +6,7 @@ from typing import Any
 
 from bs4 import BeautifulSoup, Tag
 
+from app.company_profile.names import clean_company_display_name
 from app.crawler.types import SocialLinks, WebsiteProfile
 
 CTA_PATTERN = re.compile(
@@ -70,12 +71,9 @@ def extract_company_name(profile: WebsiteProfile, soup: BeautifulSoup) -> str | 
     for item in candidates:
         cleaned = _clean_text(str(item) if item else None)
         if cleaned:
-            # Prefer site name over long marketing titles.
-            if " | " in cleaned:
-                cleaned = cleaned.split(" | ", 1)[0].strip()
-            if " - " in cleaned and len(cleaned) > 40:
-                cleaned = cleaned.split(" - ", 1)[0].strip()
-            return cleaned
+            cleaned = clean_company_display_name(cleaned)
+            if cleaned:
+                return cleaned
     return None
 
 

@@ -126,6 +126,8 @@ def build_orchestrator(**overrides: Unpack[OrchestratorOverrides]) -> LeadGenera
     enqueue_mock = AsyncMock(return_value=make_queue_item())
     email_queue_service = AsyncMock()
     email_queue_service.enqueue = enqueue_mock
+    email_queue_service.is_duplicate_company = AsyncMock(return_value=False)
+    email_queue_service.is_duplicate_recipient = AsyncMock(return_value=False)
 
     services: OrchestratorOverrides = {
         "collection_service": collection_service,

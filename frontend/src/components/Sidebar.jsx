@@ -4,7 +4,8 @@ const navItems = [
   { to: "/", label: "Dashboard" },
   { to: "/companies", label: "Companies" },
   { to: "/email-queue", label: "Email Queue" },
-  { to: "/profile", label: "Profile" }
+  { to: "/profile", label: "Profile" },
+  { to: "/settings", label: "Settings" }
 ];
 
 export default function Sidebar() {

@@ -265,6 +265,18 @@ NON_PERSON_NAME_TOKENS: frozenset[str] = frozenset(
         "enterprise",
         "startup",
         "team",
+        "beta",
+        "tester",
+        "testers",
+        "project",
+        "coding",
+        "browser",
+        "arena",
+        "monster",
+        "general",
+        "users",
+        "customer",
+        "customers",
     }
 )
 

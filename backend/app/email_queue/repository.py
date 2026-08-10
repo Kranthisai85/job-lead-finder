@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.core.logger import get_logger
 from app.email_queue.document import EmailQueueEntry
 from app.email_queue.types import EmailQueueItem, EmailQueueStatus
 from app.repositories.base_repository import BaseRepository
+
+# Queue statuses that mean "already handled / do not re-collect".
+KNOWN_COMPANY_STATUSES: tuple[EmailQueueStatus, ...] = tuple(
+    status for status in EmailQueueStatus if status != EmailQueueStatus.CANCELLED
+)
 
 
 class QueueRepository(BaseRepository[EmailQueueEntry]):
@@ -82,6 +88,30 @@ class QueueRepository(BaseRepository[EmailQueueEntry]):
 
     async def find_by_id_item(self, item_id: str) -> EmailQueueEntry | None:
         return await self.find_by_id(item_id)
+
+    async def exists_known_for_company_keys(self, company_keys: list[str]) -> bool:
+        keys = [key.strip() for key in company_keys if key and str(key).strip()]
+        if not keys:
+            return False
+        entry = await self.model.find_one(
+            {
+                "company_id": {"$in": keys},
+                "status": {"$in": [status.value for status in KNOWN_COMPANY_STATUSES]},
+            }
+        )
+        return entry is not None
+
+    async def exists_known_for_recipient_email(self, recipient_email: str) -> bool:
+        email = (recipient_email or "").strip().lower()
+        if not email:
+            return False
+        entry = await self.model.find_one(
+            {
+                "recipient_email": {"$regex": f"^{re.escape(email)}$", "$options": "i"},
+                "status": {"$in": [status.value for status in KNOWN_COMPANY_STATUSES]},
+            }
+        )
+        return entry is not None
 
     async def count_by_status(self) -> dict[str, int]:
         counts: dict[str, int] = {}

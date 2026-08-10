@@ -54,9 +54,15 @@ class PersonalizationGenerator:
 
     @staticmethod
     def _company_name(lead: CompleteLead) -> str:
+        from app.company_profile.names import prefer_company_name
+
+        profile_name = None
         if lead.company_profile and lead.company_profile.company_name:
-            return lead.company_profile.company_name
-        return lead.startup.name.strip() or "your company"
+            profile_name = lead.company_profile.company_name
+        return prefer_company_name(
+            seed_name=lead.startup.name,
+            profile_name=profile_name,
+        )
 
     @staticmethod
     def _technology_names(lead: CompleteLead) -> list[str]:
@@ -165,27 +171,47 @@ class PersonalizationGenerator:
         )
 
     def _opening(self, lead: CompleteLead, company_name: str, technology_names: list[str]) -> str:
+        del technology_names  # stack is an internal signal — never lead the email with it
+        hook = self._product_hook(lead)
+        if hook:
+            return prompts.OPENING_WITH_PRODUCT.format(company=company_name, product_hook=hook)
+        if lead.startup.description or lead.company_profile:
+            return prompts.OPENING_WITHOUT_PRODUCT.format(company=company_name)
+        return prompts.OPENING_MINIMAL.format(company=company_name)
+
+    def _product_hook(self, lead: CompleteLead) -> str | None:
+        """One short product-facing phrase for the opening line."""
+        candidates: list[str] = []
+        profile = lead.company_profile
+        if profile and profile.short_description:
+            candidates.append(profile.short_description)
+        if lead.startup.description:
+            candidates.append(lead.startup.description)
+        if lead.website_profile and lead.website_profile.description:
+            candidates.append(lead.website_profile.description)
+        for raw in candidates:
+            text = re.sub(r"\s+", " ", (raw or "").strip())
+            if not text:
+                continue
+            for sep in (". ", "! ", "? "):
+                if sep in text:
+                    text = text.split(sep, 1)[0].strip()
+                    break
+            if len(text) > 120:
+                text = text[:117].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+            if len(text) >= 12:
+                return text[0].lower() + text[1:] if text[0].isupper() else text
         product_label = self._product_label(lead)
         audience = self._audience(lead)
-        if technology_names:
-            return prompts.OPENING_WITH_TECH.format(
-                company=company_name,
-                product_label=product_label,
-                technologies=self._join_names(technology_names[:4]),
-            )
-        if lead.startup.description or lead.company_profile:
-            return prompts.OPENING_WITHOUT_TECH.format(
-                company=company_name,
-                product_label=product_label,
-                audience=audience,
-            )
-        return prompts.OPENING_MINIMAL.format(company=company_name)
+        if product_label and audience:
+            return f"building {product_label} for {audience}"
+        return None
 
     def _mobile_opportunity(
         self, lead: CompleteLead, company_name: str, has_mobile_app: bool
     ) -> str:
         if not has_mobile_app:
-            return prompts.MOBILE_OPPORTUNITY_NONE
+            return prompts.MOBILE_OPPORTUNITY_NONE.format(company=company_name)
 
         stores: list[str] = []
         report = lead.mobile_report
@@ -249,18 +275,30 @@ class PersonalizationGenerator:
 
     @staticmethod
     def _best_contact_name(lead: CompleteLead) -> str | None:
+        from app.contact_discovery.validators import normalize_person_name
+
+        candidates: list[str] = []
         if lead.lead_intelligence and lead.lead_intelligence.best_contact:
             contact = lead.lead_intelligence.best_contact
             if contact.full_name:
-                return contact.full_name
+                candidates.append(contact.full_name)
+            if contact.first_name:
+                candidates.append(contact.first_name)
         if lead.contacts and lead.contacts.contacts:
             ranked = sorted(
                 lead.contacts.contacts,
                 key=lambda item: item.confidence,
                 reverse=True,
             )
-            if ranked[0].full_name:
-                return ranked[0].full_name
+            for contact in ranked:
+                if contact.full_name:
+                    candidates.append(contact.full_name)
+                if contact.first_name:
+                    candidates.append(contact.first_name)
+        for raw in candidates:
+            cleaned = normalize_person_name(raw)
+            if cleaned:
+                return cleaned
         return None
 
     @staticmethod

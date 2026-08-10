@@ -11,8 +11,10 @@ from app.ai.client import OllamaClient, OllamaModelNotFoundError, format_ollama_
 from app.ai.generator import AIEmailGenerator
 from app.ai.prompts import (
     build_email_prompt,
+    build_fallback_subject,
     build_followup_prompt,
     build_prompt_context,
+    is_generic_subject,
     parse_email_json,
 )
 from app.ai.service import AIEmailService
@@ -123,15 +125,41 @@ def test_prompt_building_includes_required_fields() -> None:
     assert "Developer Tools" in prompt
     assert "Project Management" in prompt
     assert "React" in prompt
-    assert "Ada Lovelace" in prompt
+    assert "Ada" in prompt
     assert "(founder)" in prompt
     assert "ada@acme.example" in prompt
     assert "Lead score:" in prompt
     assert "Flutter/Dart evidence: no" in prompt
     assert "Do not invent" in prompt
-    assert "not like ChatGPT" in prompt
-    assert "I hope this email finds you well" in prompt
+    assert "ChatGPT" in prompt
+    assert "quick thought on" in prompt  # banned pattern called out in guide
+    assert "tech stack" in prompt.lower() or "Stack signals" in prompt
+    assert "What they build" in prompt
+    assert "Company brand name:" in prompt
     assert "subject" in prompt
+
+
+def test_fallback_subject_is_varied_and_not_generic() -> None:
+    assert is_generic_subject("quick thought on Univex Browser") is True
+    assert is_generic_subject("Univex outside the browser?") is False
+
+    subjects = {
+        build_fallback_subject(
+            company_name=name,
+            product_description=desc,
+            has_mobile_app=False,
+        )
+        for name, desc in (
+            ("Univex Browser", "privacy-focused browser for teams"),
+            ("Dojo", "coding practice platform for developers"),
+            ("Pesterly", "reminders that don't feel like nagging"),
+            ("Zephyrax", "monster battle arena game"),
+        )
+    }
+    assert len(subjects) >= 3
+    for subject in subjects:
+        assert "quick thought on" not in subject.lower()
+        assert is_generic_subject(subject) is False
 
 
 def test_prompt_includes_flutter_evidence_when_present() -> None:
@@ -147,8 +175,8 @@ def test_prompt_includes_flutter_evidence_when_present() -> None:
     prompt = build_email_prompt(context)
 
     assert "Flutter/Dart evidence: yes" in prompt
-    assert "Flutter-based mobile product" in prompt
     assert "Flutter" in prompt
+    assert "never mention" in prompt.lower() or "INTERNAL ONLY" in prompt
 
 
 def test_prompt_does_not_claim_flutter_without_evidence() -> None:
@@ -210,18 +238,18 @@ def test_prompt_isolated_per_company_and_contact() -> None:
     )
 
     assert "Acme" in prompt_a
-    assert "Ada Lovelace" in prompt_a
+    assert "Ada" in prompt_a
     assert "https://acme.example" in prompt_a
     assert "BetaSoft" not in prompt_a
     assert "Grace Hopper" not in prompt_a
     assert "beta.example" not in prompt_a
 
     assert "BetaSoft" in prompt_b
-    assert "Grace Hopper" in prompt_b
+    assert "Grace" in prompt_b
     assert "(CEO)" in prompt_b
     assert "https://beta.example" in prompt_b
     assert "Acme" not in prompt_b
-    assert "Ada Lovelace" not in prompt_b
+    assert "Ada" not in prompt_b
     assert "acme.example" not in prompt_b
 
 
@@ -300,7 +328,7 @@ async def test_successful_generation() -> None:
     client.generate = AsyncMock(
         return_value=ollama_json_response(
             {
-                "subject": "Flutter for Acme",
+                "subject": "Acme on mobile?",
                 "opening": "Hi Ada,",
                 "body": "I noticed Acme uses React.",
                 "cta": "Open to a quick call?",
@@ -314,7 +342,7 @@ async def test_successful_generation() -> None:
     email = await generator.generate_email(make_lead())
 
     assert email.generation_source == "ollama"
-    assert email.subject == "Flutter for Acme"
+    assert email.subject == "Acme on mobile?"
     assert email.opening == "Hi Ada,"
     assert email.token_estimate > 0
     assert "```" not in email.subject
@@ -404,18 +432,17 @@ async def test_e2e_lead_personalization_ai_email_for_one_company() -> None:
     assert client.generate.await_count == 1
     prompt = client.generate.await_args.args[0]
 
-    assert "Company: FlutterPulse" in prompt
+    assert "Company brand name: FlutterPulse" in prompt
     assert "Website: https://flutterpulse.example" in prompt
     assert "Analytics dashboards for product teams shipping Flutter apps." in prompt
-    assert "Maya Chen" in prompt
+    assert "Maya" in prompt
     assert "(Founder)" in prompt
     assert "maya@flutterpulse.example" in prompt
     assert "Flutter" in prompt
     assert "Dart" in prompt
     assert "Firebase" in prompt
     assert "Flutter/Dart evidence: yes" in prompt
-    assert "Flutter-based mobile product" in prompt
-    assert "couldn't find a native mobile application" in prompt
+    assert "couldn't find a mobile app" in prompt or "Native mobile app found: no" in prompt
     assert "Acme" not in prompt
     assert "BetaSoft" not in prompt
     assert "ada@acme.example" not in prompt
@@ -502,23 +529,23 @@ async def test_e2e_ai_email_prompts_isolated_between_companies() -> None:
     assert len(prompts) == 2
     prompt_a, prompt_b = prompts
 
-    assert "Company: Acme" in prompt_a
+    assert "Company brand name: Acme" in prompt_a
     assert "https://acme.example" in prompt_a
-    assert "Ada Lovelace" in prompt_a
+    assert "Ada" in prompt_a
     assert "React" in prompt_a
     assert "NovaLedger" not in prompt_a
     assert "Sam Ortiz" not in prompt_a
     assert "novaledger.example" not in prompt_a
     assert "Next.js" not in prompt_a
 
-    assert "Company: NovaLedger" in prompt_b
+    assert "Company brand name: NovaLedger" in prompt_b
     assert "https://novaledger.example" in prompt_b
-    assert "Sam Ortiz" in prompt_b
+    assert "Sam" in prompt_b
     assert "(CEO)" in prompt_b
     assert "Next.js" in prompt_b
     assert "Flutter/Dart evidence: no" in prompt_b
     assert "Acme" not in prompt_b
-    assert "Ada Lovelace" not in prompt_b
+    assert "Ada" not in prompt_b
     assert "acme.example" not in prompt_b
 
     assert email_a.generation_source == "ollama"
@@ -738,12 +765,33 @@ async def test_generate_followup() -> None:
 async def test_generate_subject() -> None:
     client = AsyncMock()
     client.generate = AsyncMock(
-        return_value=ollama_json_response({"subject": "Mobile idea for Acme"})
+        return_value=ollama_json_response({"subject": "Acme outside the browser?"})
     )
     client.model = "qwen2.5:7b"
 
     email = await AIEmailGenerator(client=client).generate_subject(make_lead())
-    assert email.subject == "Mobile idea for Acme"
+    assert email.subject == "Acme outside the browser?"
+
+
+@pytest.mark.asyncio
+async def test_generic_ollama_subject_is_replaced() -> None:
+    client = AsyncMock()
+    client.generate = AsyncMock(
+        return_value=ollama_json_response(
+            {
+                "subject": "quick thought on Acme",
+                "opening": "Hi Ada,",
+                "body": "Body",
+                "cta": "Call?",
+            }
+        )
+    )
+    client.model = "qwen2.5:7b"
+
+    email = await AIEmailGenerator(client=client).generate_email(make_lead())
+    assert email.generation_source == "ollama"
+    assert "quick thought on" not in email.subject.lower()
+    assert is_generic_subject(email.subject) is False
 
 
 @pytest.mark.asyncio
@@ -923,10 +971,17 @@ async def test_fallback_email_content_unchanged() -> None:
     email = await AIEmailGenerator(client=client).generate_email(lead)
 
     assert email.generation_source == "fallback"
-    assert email.subject == f"quick thought on {personalized.company_name}"
-    assert email.opening == personalized.personalized_opening
+    assert email.subject
+    assert "quick thought on" not in email.subject.lower()
+    assert personalized.company_name.split()[0] in email.subject or personalized.company_name in (
+        email.subject
+    )
+    assert email.opening in {personalized.personalized_opening, "Hi Ada,"}
     assert email.cta == personalized.cta_recommendation
     assert personalized.mobile_app_opportunity in email.body
+    assert "Detected stack" not in email.body
+    assert "technical partnership" not in email.body.lower()
+    assert client.generate.await_count == 2
 
 
 @pytest.mark.asyncio

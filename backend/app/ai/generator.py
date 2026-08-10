@@ -8,9 +8,11 @@ from app.ai.prompts import (
     SUBJECT_ONLY_REQUIRED_FIELDS,
     EmailPromptContext,
     build_email_prompt,
+    build_fallback_subject,
     build_followup_prompt,
     build_prompt_context,
     build_subject_prompt,
+    is_generic_subject,
     parse_email_json,
 )
 from app.ai.types import GeneratedEmail
@@ -56,7 +58,13 @@ class AIEmailGenerator:
         )
         if email.generation_source == "fallback" and not email.subject:
             email = email.model_copy(
-                update={"subject": f"quick thought on {context.company_name}"}
+                update={
+                    "subject": build_fallback_subject(
+                        company_name=context.company_name,
+                        product_description=context.product_description,
+                        has_mobile_app=context.has_mobile_app,
+                    )
+                }
             )
         return email
 
@@ -91,53 +99,83 @@ class AIEmailGenerator:
         context: EmailPromptContext,
         required_fields: tuple[str, ...] = DEFAULT_EMAIL_REQUIRED_FIELDS,
     ) -> GeneratedEmail:
+        del lead  # lead already folded into context/personalized
         started = perf_counter()
-        try:
-            ollama_response = await self.client.generate(prompt)
-            parsed = parse_email_json(ollama_response.response, required_fields=required_fields)
-            duration_ms = round((perf_counter() - started) * 1000, 2)
-            return GeneratedEmail(
-                subject=parsed.get("subject", ""),
-                opening=parsed.get("opening", ""),
-                body=parsed.get("body", ""),
-                cta=parsed.get("cta", ""),
-                signature=parsed.get("signature", "{{sender_name}}"),
-                generation_source="ollama",
-                model=ollama_response.model or self.client.model,
-                prompt_length=len(prompt),
-                response_time_ms=duration_ms,
-                token_estimate=OllamaClient._estimate_tokens(ollama_response.response),
-            )
-        except Exception as exc:
-            self.logger.warning(
-                "ai_email_fallback company=%s error=%s",
-                context.company_name,
-                exc,
-            )
-            return self._fallback_email(
-                personalized=personalized,
-                prompt_length=len(prompt),
-                response_time_ms=round((perf_counter() - started) * 1000, 2),
-                error=str(exc),
-            )
+        last_error: Exception | None = None
+        # One extra attempt after JSON/parse failures — common with local models.
+        for attempt in range(2):
+            try:
+                ollama_response = await self.client.generate(prompt)
+                parsed = parse_email_json(
+                    ollama_response.response,
+                    required_fields=required_fields,
+                )
+                duration_ms = round((perf_counter() - started) * 1000, 2)
+                subject = parsed.get("subject", "")
+                if is_generic_subject(subject):
+                    subject = build_fallback_subject(
+                        company_name=context.company_name,
+                        product_description=context.product_description,
+                        has_mobile_app=context.has_mobile_app,
+                    )
+                return GeneratedEmail(
+                    subject=subject,
+                    opening=parsed.get("opening", ""),
+                    body=parsed.get("body", ""),
+                    cta=parsed.get("cta", ""),
+                    signature=parsed.get("signature", "{{sender_name}}"),
+                    generation_source="ollama",
+                    model=ollama_response.model or self.client.model,
+                    prompt_length=len(prompt),
+                    response_time_ms=duration_ms,
+                    token_estimate=OllamaClient._estimate_tokens(ollama_response.response),
+                )
+            except Exception as exc:
+                last_error = exc
+                self.logger.warning(
+                    "ai_email_generate_attempt_failed company=%s attempt=%d error=%s",
+                    context.company_name,
+                    attempt + 1,
+                    exc,
+                )
+
+        self.logger.warning(
+            "ai_email_fallback company=%s error=%s",
+            context.company_name,
+            last_error,
+        )
+        return self._fallback_email(
+            personalized=personalized,
+            context=context,
+            prompt_length=len(prompt),
+            response_time_ms=round((perf_counter() - started) * 1000, 2),
+            error=str(last_error) if last_error else "unknown",
+        )
 
     @staticmethod
     def _fallback_email(
         *,
         personalized: PersonalizedEmailContext,
+        context: EmailPromptContext,
         prompt_length: int,
         response_time_ms: float,
         error: str,
     ) -> GeneratedEmail:
-        body_parts = [
-            personalized.mobile_app_opportunity,
-            personalized.suggested_value_proposition,
-            personalized.technologies_summary,
-        ]
-        body = "\n\n".join(part for part in body_parts if part.strip())
+        first = context.contact_first_name.strip()
+        opening = f"Hi {first}," if first else personalized.personalized_opening
+        body_parts: list[str] = []
+        if opening.startswith("Hi "):
+            body_parts.append(personalized.personalized_opening)
+        body_parts.append(personalized.mobile_app_opportunity)
+        body_parts.append(personalized.suggested_value_proposition)
+        body = "\n\n".join(part for part in body_parts if part and part.strip())
         return GeneratedEmail(
-            subject=f"quick thought on {personalized.company_name}",
-            opening=personalized.personalized_opening,
+            subject=build_fallback_subject(
+                company_name=personalized.company_name,
+                product_description=context.product_description,
+                has_mobile_app=context.has_mobile_app,
+            ),
+            opening=opening,
             body=body,
             cta=personalized.cta_recommendation,
             signature="{{sender_name}}",
@@ -145,6 +183,6 @@ class AIEmailGenerator:
             prompt_length=prompt_length,
             response_time_ms=response_time_ms,
             token_estimate=0,
-            warnings=["Ollama unavailable; used deterministic personalization fallback"],
+            warnings=["Ollama unavailable or invalid JSON; used founder-friendly fallback"],
             errors=[error],
         )

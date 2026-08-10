@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-OPENING_WITH_TECH = (
-    "I noticed {company} recently launched a modern {product_label} " "built with {technologies}."
-)
+OPENING_WITH_PRODUCT = "I came across {company} — {product_hook}."
 
-OPENING_WITHOUT_TECH = "I noticed {company} is building {product_label} for {audience}."
+OPENING_WITHOUT_PRODUCT = "I came across {company} and spent a few minutes looking at what you're building."
 
 OPENING_MINIMAL = "I came across {company} and wanted to reach out."
 
@@ -15,8 +13,8 @@ COMPANY_SUMMARY_FULL = (
 COMPANY_SUMMARY_BASIC = "{company} is a {product_label} company. {description}"
 
 MOBILE_OPPORTUNITY_NONE = (
-    "I couldn't find a native mobile application, which may represent an "
-    "opportunity to improve customer engagement."
+    "I couldn't find a mobile app for {company}, so I was curious whether "
+    "mobile is already on your roadmap or still later."
 )
 
 MOBILE_OPPORTUNITY_PRESENT = (
@@ -24,7 +22,8 @@ MOBILE_OPPORTUNITY_PRESENT = (
     "{store_clause}, so a complementary Flutter engagement may be less urgent."
 )
 
-TECH_SUMMARY_PRESENT = "Detected stack highlights include {technologies}."
+# Internal notes for the model / debugging — never paste into outbound email as-is.
+TECH_SUMMARY_PRESENT = "Internal stack signals (do not recite in email): {technologies}."
 
 TECH_SUMMARY_MISSING = "No clear technology signals were detected on the website."
 
@@ -35,29 +34,22 @@ QUALIFICATION_FAIL = "Qualification did not pass (score {score}/100)" "{reasons_
 QUALIFICATION_MISSING = "Qualification data was not available for this lead."
 
 VALUE_PROP_FLUTTER = (
-    "A Flutter-based mobile product could help {company} ship iOS and Android "
-    "from one codebase while preserving the quality of the existing web experience."
+    "I build Flutter apps and can help turn the existing product into a mobile "
+    "experience without {company} needing another full-time engineer."
 )
 
 VALUE_PROP_WITH_MOBILE = (
-    "There may still be room to unify or modernize {company}'s mobile experience "
-    "with a shared Flutter codebase across platforms."
+    "I help teams ship or unify Flutter mobile apps so product engineering can "
+    "stay focused on the core product."
 )
 
 VALUE_PROP_GENERIC = (
-    "A focused technical partnership could help {company} accelerate product "
-    "delivery and strengthen customer engagement."
+    "I help early-stage teams build and ship Flutter mobile apps without adding "
+    "another full-time engineer — your web team can stay focused on the product."
 )
 
-CTA_FLUTTER = (
-    "Would you be open to a short conversation about a Flutter mobile MVP " "for {company}?"
-)
+CTA_FLUTTER = "Worth a quick chat about a Flutter mobile MVP, or is that off the table for now?"
 
-CTA_GENERIC = (
-    "Would you be open to a brief call to explore how we could support "
-    "{company}'s next product milestone?"
-)
+CTA_GENERIC = "Is mobile something you're considering for {company}, or is it later?"
 
-CTA_WITH_CONTACT = (
-    "Would {contact_name} be open to a short conversation about next steps " "for {company}?"
-)
+CTA_WITH_CONTACT = "Curious if mobile is on the roadmap — open to a short reply either way?"

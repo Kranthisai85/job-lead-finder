@@ -21,9 +21,16 @@ services:
     restart: unless-stopped
     env_file:
       - backend/.env
+    environment:
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      OLLAMA_TIMEOUT: ${OLLAMA_TIMEOUT:-120}
+      OLLAMA_TEMPERATURE: ${OLLAMA_TEMPERATURE:-0.45}
+      OLLAMA_MAX_TOKENS: ${OLLAMA_MAX_TOKENS:-512}
     depends_on:
       mongodb:
         condition: service_healthy
+      ollama:
+        condition: service_started
     ports:
       - "8001:8001"
     extra_hosts:

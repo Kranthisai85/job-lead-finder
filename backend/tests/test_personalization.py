@@ -146,9 +146,14 @@ def make_lead(
 def test_no_mobile_app_opportunity() -> None:
     context = CompanyPersonalizationService().generate(make_lead(has_mobile_app=False))
     assert context.has_mobile_app is False
-    assert "couldn't find a native mobile application" in context.mobile_app_opportunity
-    assert "React" in context.personalized_opening
-    assert "Tailwind" in context.personalized_opening
+    assert "curious whether" in context.mobile_app_opportunity
+    assert "mobile is already on your roadmap" in context.mobile_app_opportunity
+    assert "React" not in context.personalized_opening
+    assert "Tailwind" not in context.personalized_opening
+    assert "Acme" in context.personalized_opening
+    assert "Detected stack" not in context.technologies_summary or "Internal" in (
+        context.technologies_summary
+    )
 
 
 def test_mobile_app_detected() -> None:
@@ -167,7 +172,8 @@ def test_flutter_technology_is_flutter_lead() -> None:
         make_lead(technologies=["Flutter", "Firebase"], has_mobile_app=False)
     )
     assert context.is_flutter_lead is True
-    assert "Flutter-based mobile product" in context.suggested_value_proposition
+    assert "Flutter" in context.suggested_value_proposition
+    assert "technical partnership" not in context.suggested_value_proposition.lower()
 
 
 def test_dart_technology_is_flutter_lead() -> None:
@@ -216,7 +222,8 @@ def test_react_vue_svelte_only_is_not_flutter_lead() -> None:
         )
     )
     assert context.is_flutter_lead is False
-    assert "Flutter-based mobile product" not in context.suggested_value_proposition
+    assert "technical partnership" not in context.suggested_value_proposition.lower()
+    assert "full-time engineer" in context.suggested_value_proposition
 
 
 def test_no_mobile_app_does_not_imply_flutter() -> None:
@@ -244,7 +251,7 @@ def test_non_flutter_lead_with_mobile() -> None:
         make_lead(has_mobile_app=True, qualified=True, with_contacts=True)
     )
     assert context.is_flutter_lead is False
-    assert "unify or modernize" in context.suggested_value_proposition
+    assert "Flutter" in context.suggested_value_proposition
 
 
 def test_missing_technologies() -> None:
@@ -253,14 +260,26 @@ def test_missing_technologies() -> None:
         "No clear technology signals were detected on the website."
     )
     assert "Missing technology signals" in context.warnings
-    assert "SaaS" in context.personalized_opening or "Acme" in context.personalized_opening
+    assert "Acme" in context.personalized_opening
+    assert "built with" not in context.personalized_opening.lower()
 
 
 def test_missing_contacts() -> None:
     context = CompanyPersonalizationService().generate(make_lead(with_contacts=False))
     assert "Missing contacts" in context.warnings
     assert context.is_flutter_lead is False
-    assert "brief call" in context.cta_recommendation
+    assert "mobile" in context.cta_recommendation.lower()
+
+
+def test_strips_tagline_from_company_name() -> None:
+    lead = make_lead(
+        company_name="Pesterly: somebody has to nag. It doesn't have to be you."
+    )
+    lead.startup.name = "Pesterly"
+    context = CompanyPersonalizationService().generate(lead)
+    assert context.company_name == "Pesterly"
+    assert "somebody has to nag" not in context.company_name
+    assert "somebody has to nag" not in context.personalized_opening
 
 
 def test_confidence_scoring() -> None:

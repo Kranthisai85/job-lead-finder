@@ -36,6 +36,28 @@ GENERIC_LOCAL_PARTS = {
     "team",
     "admin",
 }
+
+# Generic inboxes look real but often bounce or go to shared boxes — skip for cold outbound.
+OUTBOUND_SKIP_LOCAL_PARTS: frozenset[str] = frozenset(
+    GENERIC_LOCAL_PARTS
+    | {
+        "hi",
+        "hey",
+        "mail",
+        "office",
+        "help",
+        "enquiries",
+        "enquiry",
+        "inquiries",
+        "inquiry",
+        "press",
+        "media",
+        "noreply",
+        "no-reply",
+        "donotreply",
+        "do-not-reply",
+    }
+)
 HIGH_VALUE_LOCAL_PARTS = {"founder", "ceo", "cto", "owner", "hiring"}
 
 SUPPORTED_ROLES = (
@@ -147,6 +169,22 @@ def is_valid_email(email: str) -> bool:
     return True
 
 
+def is_generic_inbox_email(email: str | None) -> bool:
+    """True for shared inboxes (hello@, info@, …) that frequently bounce on cold send."""
+    if not email or "@" not in email:
+        return False
+    local = email.split("@", 1)[0].strip().lower()
+    local = local.split("+", 1)[0]
+    return local in OUTBOUND_SKIP_LOCAL_PARTS
+
+
+def is_outbound_safe_email(email: str | None) -> bool:
+    """Format-valid and not a generic/shared inbox."""
+    if not email or not is_valid_email(email):
+        return False
+    return not is_generic_inbox_email(email)
+
+
 def is_fake_contact_name(name: str | None) -> bool:
     if not name or not name.strip():
         return False
@@ -177,11 +215,21 @@ def is_fake_contact_name(name: str | None) -> bool:
         "sign",
         "in",
         "up",
+        "hi",
+        "hey",
+        "there",
+        "team",
+        "beta",
+        "tester",
+        "testers",
     }
     tokens = cleaned.replace("-", " ").split()
     if not tokens:
         return True
     if cleaned in single_token_rejects:
+        return True
+    # Reject greeting-prefixed scrapes ("hi priya", "hello team").
+    if tokens[0] in {"hi", "hello", "hey", "dear"}:
         return True
     # Reject nav-like phrases ("Support Info Privacy", "Sign In", …).
     if any(
@@ -199,6 +247,24 @@ def is_fake_contact_name(name: str | None) -> bool:
     if len(tokens) >= 2 and non_person_hits >= (len(tokens) + 1) // 2:
         return True
     return False
+
+
+_GREETING_PREFIX_RE = re.compile(r"^(hi|hello|hey|dear)\s+", re.IGNORECASE)
+
+
+def normalize_person_name(name: str | None) -> str | None:
+    """Return a usable person name, or None if the scrape is junk/greeting noise."""
+    if not name or not name.strip():
+        return None
+    cleaned = re.sub(r"\s+", " ", name.strip())
+    cleaned = _GREETING_PREFIX_RE.sub("", cleaned).strip(" ,.-")
+    if not cleaned or is_fake_contact_name(cleaned):
+        return None
+    # Prefer first name only for email greetings when we have 2+ tokens.
+    parts = cleaned.split()
+    if len(parts) >= 2 and all(part[:1].isupper() for part in parts if part):
+        return parts[0]
+    return cleaned
 
 
 def is_generic_email_contact(*, email: str | None, role: str | None, full_name: str | None) -> bool:

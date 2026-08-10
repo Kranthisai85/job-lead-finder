@@ -3,7 +3,12 @@ from bs4 import BeautifulSoup
 
 from app.contact_discovery.extractors import extract_emails_from_text, extract_mailto_emails
 from app.contact_discovery.service import ContactDiscoveryService
-from app.contact_discovery.validators import is_fake_contact_name, is_valid_email, normalize_email
+from app.contact_discovery.validators import (
+    is_fake_contact_name,
+    is_valid_email,
+    normalize_email,
+    normalize_person_name,
+)
 from app.crawler.types import WebsiteProfile
 
 
@@ -67,6 +72,12 @@ def test_rejects_fake_contact_names() -> None:
     assert is_fake_contact_name("Account Wallets") is True
     assert is_fake_contact_name("Cloud Connector") is True
     assert is_fake_contact_name("Jane Founder") is False
+    assert is_fake_contact_name("Beta Testers") is True
+    assert is_fake_contact_name("Hi Priya") is True
+    assert is_fake_contact_name("Zephyrax Project Team") is True
+    assert normalize_person_name("Hi Priya") == "Priya"
+    assert normalize_person_name("Ada Lovelace") == "Ada"
+    assert normalize_person_name("Beta Testers") is None
 
 
 def test_founder_page_extraction() -> None:

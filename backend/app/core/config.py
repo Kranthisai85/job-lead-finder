@@ -68,9 +68,9 @@ class Settings(BaseSettings):
 
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:7b"
-    ollama_timeout: float = Field(default=60.0, ge=1.0)
-    ollama_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
-    ollama_max_tokens: int = Field(default=384, ge=1, le=4096)
+    ollama_timeout: float = Field(default=120.0, ge=1.0)
+    ollama_temperature: float = Field(default=0.45, ge=0.0, le=2.0)
+    ollama_max_tokens: int = Field(default=512, ge=1, le=4096)
 
     # SMTP delivery (Step 40). Keep disabled until production credentials are set.
     smtp_enabled: bool = False

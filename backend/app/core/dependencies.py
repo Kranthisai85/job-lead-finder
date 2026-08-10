@@ -1,6 +1,7 @@
 from fastapi import Depends
 
 from app.email_queue.service import EmailQueueService
+from app.app_settings.service import AppSettingsService
 from app.repositories.company_repository import CompanyRepository
 from app.repositories.contact_repository import ContactRepository
 from app.repositories.email_draft_repository import EmailDraftRepository
@@ -37,3 +38,7 @@ def get_email_queue_service() -> EmailQueueService:
 
 def get_sender_profile_service() -> SenderProfileService:
     return SenderProfileService()
+
+
+def get_app_settings_service() -> AppSettingsService:
+    return AppSettingsService()

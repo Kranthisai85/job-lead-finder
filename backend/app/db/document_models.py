@@ -11,6 +11,7 @@ from typing import Any
 from app.company_intelligence.models import CompanyIntelligenceDocument
 from app.email_queue.document import EmailQueueEntry
 from app.founder_enrichment.models import FounderProfileDocument
+from app.models.app_settings import AppSettingsDocument
 from app.models.company import Company
 from app.models.contact import Contact
 from app.models.decision_maker import CompanyDecisionMakerDocument
@@ -33,6 +34,7 @@ DOCUMENT_MODELS: list[type[Any]] = [
     EmailQueueEntry,
     ScraperJob,
     SenderProfileDocument,
+    AppSettingsDocument,
 ]
 
 REGISTERED_MODEL_NAMES: list[str] = [model.__name__ for model in DOCUMENT_MODELS]
