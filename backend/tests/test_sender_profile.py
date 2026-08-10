@@ -34,13 +34,16 @@ def test_build_signature_block_with_links() -> None:
             display_name="Kranthi Sai",
             linkedin_url="https://linkedin.com/in/kranthi",
             github_url="https://github.com/kranthi",
+            phone_number="+91 98765 43210",
         )
     )
     assert block == (
         "Best regards,\n"
         "Kranthi Sai\n"
         "LinkedIn: https://linkedin.com/in/kranthi\n"
-        "GitHub: https://github.com/kranthi"
+        "GitHub: https://github.com/kranthi\n"
+        "WhatsApp: +91 98765 43210\n"
+        "https://wa.me/919876543210"
     )
 
 
@@ -49,15 +52,19 @@ def test_finalize_body_replaces_placeholder() -> None:
         display_name="Kranthi Sai",
         linkedin_url="https://linkedin.com/in/kranthi",
         github_url="https://github.com/kranthi",
+        phone_number="+919876543210",
     )
     body = finalize_body_for_send(
         "Hi Ada,\n\nThanks.\n\nBest regards,\n{{sender_name}}",
         profile,
     )
     assert "{{sender_name}}" not in body
+    assert "https://wa.me/919876543210" in body
     assert body.endswith(
         "Best regards,\nKranthi Sai\nLinkedIn: https://linkedin.com/in/kranthi\n"
-        "GitHub: https://github.com/kranthi"
+        "GitHub: https://github.com/kranthi\n"
+        "WhatsApp: +919876543210\n"
+        "https://wa.me/919876543210"
     )
 
 
@@ -72,11 +79,13 @@ async def test_sender_profile_round_trip(profile_db: Any) -> None:
             display_name="  Kranthi Sai  ",
             linkedin_url=" https://linkedin.com/in/kranthi ",
             github_url=" https://github.com/kranthi ",
+            phone_number=" +91 98765 43210 ",
         )
     )
     assert saved.display_name == "Kranthi Sai"
     assert saved.linkedin_url == "https://linkedin.com/in/kranthi"
     assert saved.github_url == "https://github.com/kranthi"
+    assert saved.phone_number == "+91 98765 43210"
 
     loaded = await service.get_profile()
     assert loaded == saved

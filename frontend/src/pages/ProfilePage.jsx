@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import Layout from "../components/Layout";
@@ -7,8 +7,17 @@ import { fetchSenderProfile, updateSenderProfile } from "../services/profileServ
 const emptyForm = {
   display_name: "",
   linkedin_url: "",
-  github_url: ""
+  github_url: "",
+  phone_number: ""
 };
+
+function whatsappUrl(phone) {
+  const digits = String(phone || "").replace(/\D+/g, "");
+  if (digits.length < 8) {
+    return "";
+  }
+  return `https://wa.me/${digits}`;
+}
 
 export default function ProfilePage() {
   const queryClient = useQueryClient();
@@ -29,7 +38,8 @@ export default function ProfilePage() {
     setForm({
       display_name: profile.display_name || "",
       linkedin_url: profile.linkedin_url || "",
-      github_url: profile.github_url || ""
+      github_url: profile.github_url || "",
+      phone_number: profile.phone_number || ""
     });
   }, [data]);
 
@@ -55,9 +65,12 @@ export default function ProfilePage() {
     saveMutation.mutate({
       display_name: form.display_name.trim(),
       linkedin_url: form.linkedin_url.trim(),
-      github_url: form.github_url.trim()
+      github_url: form.github_url.trim(),
+      phone_number: form.phone_number.trim()
     });
   };
+
+  const waLink = useMemo(() => whatsappUrl(form.phone_number), [form.phone_number]);
 
   return (
     <Layout>
@@ -65,9 +78,10 @@ export default function ProfilePage() {
         <div>
           <h1 className="text-2xl font-semibold text-white">Profile</h1>
           <p className="mt-2 text-sm text-slate-400">
-            Your name, LinkedIn, and GitHub are used in outbound email signatures. Save these
-            before approving emails so{" "}
-            <code className="text-slate-300">{"{{sender_name}}"}</code> is replaced.
+            Your name, LinkedIn, GitHub, and phone are used in outbound email signatures. Save
+            these before approving emails so{" "}
+            <code className="text-slate-300">{"{{sender_name}}"}</code> is replaced. Phone opens
+            WhatsApp when clicked.
           </p>
         </div>
 
@@ -115,6 +129,20 @@ export default function ProfilePage() {
             />
           </label>
 
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-slate-300">Phone number (WhatsApp)</span>
+            <input
+              type="tel"
+              value={form.phone_number}
+              onChange={onChange("phone_number")}
+              placeholder="+91 98765 43210"
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-slate-500"
+            />
+            <span className="block text-xs text-slate-500">
+              Include country code (e.g. +91…). Saved emails use a WhatsApp link.
+            </span>
+          </label>
+
           <button
             type="submit"
             disabled={saveMutation.isPending}
@@ -127,11 +155,25 @@ export default function ProfilePage() {
         {form.display_name ? (
           <div className="rounded-xl border border-slate-800 bg-slate-950 p-6">
             <p className="text-xs uppercase tracking-[0.15em] text-slate-500">Signature preview</p>
-            <pre className="mt-3 whitespace-pre-wrap text-sm text-slate-300">
-              {`Best regards,\n${form.display_name.trim()}${
-                form.linkedin_url.trim() ? `\nLinkedIn: ${form.linkedin_url.trim()}` : ""
-              }${form.github_url.trim() ? `\nGitHub: ${form.github_url.trim()}` : ""}`}
-            </pre>
+            <div className="mt-3 space-y-1 text-sm text-slate-300">
+              <p>Best regards,</p>
+              <p>{form.display_name.trim()}</p>
+              {form.linkedin_url.trim() ? <p>LinkedIn: {form.linkedin_url.trim()}</p> : null}
+              {form.github_url.trim() ? <p>GitHub: {form.github_url.trim()}</p> : null}
+              {waLink ? (
+                <p>
+                  WhatsApp:{" "}
+                  <a
+                    href={waLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sky-400 underline hover:text-sky-300"
+                  >
+                    {form.phone_number.trim() || waLink}
+                  </a>
+                </p>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </section>

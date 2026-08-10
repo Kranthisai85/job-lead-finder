@@ -16,6 +16,7 @@ class SenderProfileDocument(BaseDocument):
     display_name: str = ""
     linkedin_url: str = ""
     github_url: str = ""
+    phone_number: str = ""
 
     class Settings:
         name = "sender_profiles"
