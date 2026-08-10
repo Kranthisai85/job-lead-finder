@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import CompanyModal from "../components/CompanyModal";
@@ -11,9 +11,29 @@ import {
   updateCompany
 } from "../services/companyService";
 
+const PAGE_SIZE = 20;
+
+function formatCreatedAt(value) {
+  if (!value) {
+    return "—";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
 export default function CompaniesPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("create");
   const [selectedCompany, setSelectedCompany] = useState(null);
@@ -21,15 +41,19 @@ export default function CompaniesPage() {
   const [companyToDelete, setCompanyToDelete] = useState(null);
   const [actionError, setActionError] = useState("");
 
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
   const queryParams = useMemo(
     () => ({
-      page: 1,
-      page_size: 20,
+      page,
+      page_size: PAGE_SIZE,
       search: search.trim() || undefined,
       sort: "created_at",
       order: "desc"
     }),
-    [search]
+    [page, search]
   );
 
   const { data, isLoading, isError, error } = useQuery({
@@ -69,6 +93,13 @@ export default function CompaniesPage() {
   });
 
   const companies = data?.data?.items ?? [];
+  const total = data?.data?.total ?? 0;
+  const totalPages = Math.max(1, data?.data?.total_pages ?? 1);
+  const currentPage = data?.data?.page ?? page;
+  const canGoPrev = currentPage > 1;
+  const canGoNext = currentPage < totalPages;
+  const rangeStart = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(currentPage * PAGE_SIZE, total);
 
   function openCreateModal() {
     setModalMode("create");
@@ -138,53 +169,94 @@ export default function CompaniesPage() {
               </p>
             </div>
           ) : (
-            <table className="min-w-full divide-y divide-slate-800">
-              <thead className="bg-slate-900/80">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Name
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Website
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Industry
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Source
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {companies.map((company) => (
-                  <tr key={company.id} className="hover:bg-slate-900/60">
-                    <td className="px-4 py-3 text-sm text-white">{company.name}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300">{company.website}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300">{company.industry || "-"}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300">{company.source || "-"}</td>
-                    <td className="px-4 py-3 text-right text-sm">
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(company)}
-                        className="mr-3 text-sky-400 hover:text-sky-300"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openDeleteDialog(company)}
-                        className="text-rose-400 hover:text-rose-300"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-800">
+                  <thead className="bg-slate-900/80">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Name
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Website
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Industry
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Source
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Actions
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Created At
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {companies.map((company) => (
+                      <tr key={company.id} className="hover:bg-slate-900/60">
+                        <td className="px-4 py-3 text-sm text-white">{company.name}</td>
+                        <td className="px-4 py-3 text-sm text-slate-300">{company.website}</td>
+                        <td className="px-4 py-3 text-sm text-slate-300">
+                          {company.industry || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-300">
+                          {company.source || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(company)}
+                            className="mr-3 text-sky-400 hover:text-sky-300"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openDeleteDialog(company)}
+                            className="text-rose-400 hover:text-rose-300"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">
+                          {formatCreatedAt(company.created_at)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-slate-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-slate-400">
+                  Showing {rangeStart}–{rangeEnd} of {total}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={!canGoPrev}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+                  <span className="min-w-[7rem] text-center text-sm text-slate-300">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={!canGoNext}
+                    onClick={() => setPage((current) => current + 1)}
+                    className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>

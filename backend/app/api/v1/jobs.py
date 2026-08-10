@@ -27,7 +27,7 @@ async def _execute_manual_pipeline() -> None:
 
 @router.post("/run-now", response_model=APIResponse[dict])
 async def run_pipeline_now() -> APIResponse[dict] | JSONResponse:
-    """Manually start the daily lead-generation pipeline (does not change the 09:00 schedule)."""
+    """Manually start the daily lead-generation pipeline (does not change the scheduled time)."""
     global _manual_run_active
     async with _manual_run_lock:
         if _manual_run_active:
@@ -44,7 +44,7 @@ async def run_pipeline_now() -> APIResponse[dict] | JSONResponse:
 
     asyncio.create_task(_execute_manual_pipeline())
     return success_response(
-        message="Lead generation started. The 09:00 schedule is unchanged.",
+        message="Lead generation started. The daily schedule is unchanged.",
         data={
             "job_name": DAILY_LEAD_GENERATION_JOB,
             "status": "started",

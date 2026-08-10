@@ -36,6 +36,14 @@ class SchedulerService:
         )
         self.scheduler.start()
 
+    def reschedule(self, *, hour: int, minute: int) -> None:
+        self.logger.info(
+            "[SCHEDULER] service=SchedulerService action=reschedule schedule=%02d:%02d",
+            hour,
+            minute,
+        )
+        self.scheduler.reschedule(hour=hour, minute=minute)
+
     def shutdown(self, *, wait: bool = False) -> None:
         self.logger.info("[SCHEDULER] service=SchedulerService action=shutdown")
         self.scheduler.shutdown(wait=wait)

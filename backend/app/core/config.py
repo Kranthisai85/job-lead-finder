@@ -33,6 +33,54 @@ class Settings(BaseSettings):
     # Hard cap per product website resolution (Cloudflare must not block the pipeline).
     product_hunt_website_resolve_timeout: float = Field(default=5.0, ge=0.5, le=30.0)
 
+    hackernews_api_url: str = "https://hn.algolia.com/api/v1/search_by_date"
+    hackernews_user_agent: str = "LeadFinder/1.0 (lead-finder-backend)"
+    hackernews_timeout: float = Field(default=30.0, ge=1.0)
+    hackernews_max_companies: int = Field(default=50, ge=1, le=200)
+
+    ycombinator_api_base: str = "https://yc-oss.github.io/api"
+    ycombinator_user_agent: str = "LeadFinder/1.0 (lead-finder-backend)"
+    ycombinator_timeout: float = Field(default=45.0, ge=1.0)
+    ycombinator_max_companies: int = Field(default=50, ge=1, le=200)
+
+    # When true, India-linked startups are sorted first within each collector batch.
+    prefer_india_startups: bool = True
+
+    github_api_base: str = "https://api.github.com"
+    github_user_agent: str = "LeadFinder/1.0 (lead-finder-backend)"
+    github_timeout: float = Field(default=30.0, ge=1.0)
+    github_max_companies: int = Field(default=50, ge=1, le=200)
+    github_token: str | None = None
+    github_min_stars: int = Field(default=5, ge=0)
+    github_lookback_days: int = Field(default=45, ge=1, le=365)
+    github_india_query: str = "india OR bangalore OR bengaluru OR mumbai OR hyderabad OR chennai OR pune"
+
+    rss_user_agent: str = "LeadFinder/1.0 (lead-finder-backend)"
+    rss_timeout: float = Field(default=30.0, ge=1.0)
+    rss_max_companies: int = Field(default=40, ge=1, le=200)
+    # Comma-separated feed URLs (India-leaning startup media first).
+    rss_feed_urls: str = (
+        "https://inc42.com/feed/,"
+        "https://yourstory.com/feed/,"
+        "https://techcrunch.com/tag/india/feed/"
+    )
+
+    google_news_max_companies: int = Field(default=40, ge=1, le=200)
+    google_news_feed_urls: str = (
+        "https://news.google.com/rss/search?q=Indian+startup+launch&hl=en-IN&gl=IN&ceid=IN:en,"
+        "https://news.google.com/rss/search?q=startup+raises+funding+India&hl=en-IN&gl=IN&ceid=IN:en,"
+        "https://news.google.com/rss/search?q=new+SaaS+startup+India&hl=en-IN&gl=IN&ceid=IN:en"
+    )
+
+    reddit_user_agent: str = "LeadFinder/1.0 by lead-finder-backend"
+    reddit_timeout: float = Field(default=30.0, ge=1.0)
+    reddit_max_companies: int = Field(default=40, ge=1, le=200)
+    reddit_client_id: str | None = None
+    reddit_client_secret: str | None = None
+    reddit_subreddits: str = (
+        "indianstartups,developersIndia,startups,SideProject,indiehackers,Entrepreneur"
+    )
+
     qualification_passing_score: int = Field(default=60, ge=0, le=100)
     qualification_enabled_rules: str = (
         "website_exists,company_name_exists,description_exists,not_localhost,"
@@ -53,7 +101,9 @@ class Settings(BaseSettings):
     mobile_detection_enabled: bool = True
     mobile_detection_minimum_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
 
-    enabled_sources: str = "producthunt"
+    enabled_sources: str = (
+        "producthunt,hackernews,ycombinator,github,rss,googlenews,reddit"
+    )
     collection_timeout: float = Field(default=300.0, ge=1.0)
     max_collectors: int = Field(default=10, ge=1, le=50)
 

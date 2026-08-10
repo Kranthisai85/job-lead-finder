@@ -10,6 +10,7 @@ from app.api.v1.email_queue import router as email_queue_router
 from app.api.v1.jobs import router as jobs_router
 from app.api.v1.profile import router as profile_router
 from app.api.v1.settings import router as settings_router
+from app.app_settings.service import AppSettingsService
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logger import get_logger, setup_logging
@@ -26,6 +27,11 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     scheduler_service = get_scheduler_service()
     try:
         scheduler_service.start()
+        app_settings = await AppSettingsService().get_settings()
+        scheduler_service.reschedule(
+            hour=app_settings.scheduler_hour,
+            minute=app_settings.scheduler_minute,
+        )
     except Exception as exc:  # noqa: BLE001 — backend must still start
         get_logger(__name__).error("[SCHEDULER] startup_failed error=%s", exc)
     yield

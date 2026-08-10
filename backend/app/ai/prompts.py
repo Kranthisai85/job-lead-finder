@@ -55,8 +55,10 @@ Required structure (keep short):
      "Exploring … Opportunities"
      "Flutter for …" / "Mobile idea for …"
      anything that is just "quick thought on {company}"
-2) opening — "Hi {first_name}," if a real first name is provided; otherwise skip the greeting
-   and start the body. Never invent names. Never write "Hi there," as the opening alone.
+2) opening — If a real first name is provided, write it literally, e.g. "Hi Priya,".
+   If no real first name is provided, skip the greeting and start the body.
+   Never invent names. Never write "Hi there,". Never write placeholders like
+   "{{first_name}}" or "{{name}}" — those are forbidden.
 3) body — 2–3 short sentences ONLY:
    a) One sentence showing you understand what they build (use product description).
    b) One curious question/observation about mobile (ask if it's on the roadmap —
@@ -64,9 +66,11 @@ Required structure (keep short):
    c) One concrete sentence about what YOU do: Flutter mobile apps for early-stage teams,
       so their web team can stay focused on the product.
 4) cta — one soft question (roadmap / timing), not "next steps for a partnership".
-5) signature must be exactly "{{sender_name}}"
+5) signature must be exactly "{{sender_name}}" (this is the ONLY allowed placeholder)
 
 Hard bans (never write these):
+- Literal template tokens: "{{first_name}}", "{{name}}", "{{company}}", "{{anything}}"
+  except signature which must be exactly "{{sender_name}}"
 - Listing their tech stack (frameworks, hosting, analytics tools, etc.)
 - "Detected stack", "modern SaaS", "technical partnership", "accelerate product delivery"
 - "I hope this email finds you well", "Greetings from …", "synergy", "leverage", "utilize"

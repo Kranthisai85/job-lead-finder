@@ -5,6 +5,11 @@ export async function fetchPendingEmails() {
   return response.data;
 }
 
+export async function updateEmailDraft(itemId, payload) {
+  const response = await apiClient.patch(`/api/v1/email-queue/${itemId}`, payload);
+  return response.data;
+}
+
 export async function approveEmail(itemId) {
   const response = await apiClient.post(`/api/v1/email-queue/${itemId}/approve`);
   return response.data;

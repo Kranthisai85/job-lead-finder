@@ -35,12 +35,26 @@ def build_signature_block(profile: SenderProfile | None) -> str:
     return "\n".join(lines)
 
 
-def finalize_body_for_send(body: str, profile: SenderProfile | None) -> str:
-    """Replace {{sender_name}} and expand signature using dashboard profile."""
+def finalize_body_for_send(
+    body: str,
+    profile: SenderProfile | None,
+    *,
+    recipient_name: str = "",
+) -> str:
+    """Replace placeholders and expand signature using dashboard profile."""
+    from app.email_queue.placeholders import scrub_template_placeholders
+
     text = body or ""
     signature = build_signature_block(profile)
     name = (profile.display_name if profile else "") or ""
     name = name.strip()
+
+    text = scrub_template_placeholders(
+        text,
+        recipient_name=recipient_name,
+        sender_name=name,
+        keep_sender_placeholder=False,
+    )
 
     if f"Best regards,\n{SENDER_NAME_PLACEHOLDER}" in text:
         text = text.replace(f"Best regards,\n{SENDER_NAME_PLACEHOLDER}", signature)

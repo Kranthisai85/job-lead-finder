@@ -50,10 +50,20 @@ class LeadScheduler:
         self._metrics: dict[str, JobExecutionMetrics] = {}
         self._last_collected_seeds: list[StartupSeed] = []
         self._running = False
+        self._hour = settings.scheduler_hour
+        self._minute = settings.scheduler_minute
 
     @property
     def last_collected_seeds(self) -> list[StartupSeed]:
         return list(self._last_collected_seeds)
+
+    @property
+    def schedule_hour(self) -> int:
+        return self._hour
+
+    @property
+    def schedule_minute(self) -> int:
+        return self._minute
 
     def start(self) -> None:
         if self._running:
@@ -63,13 +73,43 @@ class LeadScheduler:
             self.logger.info("[SCHEDULER] Scheduler disabled status=skipped")
             return
 
+        self._register_production_jobs()
+        if not self.scheduler.running:
+            self.scheduler.start()
+        self._running = True
+        self._refresh_next_executions()
+        self._log_schedule_state(action="started")
+
+    def reschedule(self, *, hour: int, minute: int) -> None:
+        """Update daily cron time (live if scheduler already running)."""
+        self._hour = int(hour)
+        self._minute = int(minute)
+        if not settings.scheduler_enabled:
+            self.logger.info(
+                "[SCHEDULER] reschedule_saved schedule=%02d:%02d enabled=false",
+                self._hour,
+                self._minute,
+            )
+            return
+        if not self._running:
+            self.logger.info(
+                "[SCHEDULER] reschedule_saved schedule=%02d:%02d running=false",
+                self._hour,
+                self._minute,
+            )
+            return
+        self._register_production_jobs()
+        self._refresh_next_executions()
+        self._log_schedule_state(action="rescheduled")
+
+    def _register_production_jobs(self) -> None:
         for job_name in self.PRODUCTION_JOB_NAMES:
             job = self._create_job(job_name)
             if not job.enabled:
                 continue
             trigger = CronTrigger(
-                hour=settings.scheduler_hour,
-                minute=settings.scheduler_minute,
+                hour=self._hour,
+                minute=self._minute,
                 timezone=self._timezone,
             )
             self.scheduler.add_job(
@@ -83,20 +123,16 @@ class LeadScheduler:
             )
             self._ensure_metrics(job.name)
 
-        if not self.scheduler.running:
-            self.scheduler.start()
-        self._running = True
-        self._refresh_next_executions()
-
+    def _log_schedule_state(self, *, action: str) -> None:
         next_runs = []
         for scheduled_job in self.scheduler.get_jobs():
             next_runs.append(f"{scheduled_job.id}={scheduled_job.next_run_time}")
-        self.logger.info("[SCHEDULER] Scheduler started")
+        self.logger.info("[SCHEDULER] Scheduler %s", action)
         self.logger.info("[SCHEDULER] timezone=%s", settings.scheduler_timezone)
         self.logger.info(
             "[SCHEDULER] schedule=%02d:%02d jobs=%s",
-            settings.scheduler_hour,
-            settings.scheduler_minute,
+            self._hour,
+            self._minute,
             list(self.PRODUCTION_JOB_NAMES),
         )
         self.logger.info("[SCHEDULER] next_run=%s", "; ".join(next_runs) or "none")

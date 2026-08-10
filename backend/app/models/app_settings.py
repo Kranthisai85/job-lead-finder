@@ -14,6 +14,8 @@ class AppSettingsDocument(BaseDocument):
 
     settings_key: str = DEFAULT_APP_SETTINGS_KEY
     skip_duplicate_companies: bool = True
+    scheduler_hour: int = 9
+    scheduler_minute: int = 0
 
     class Settings:
         name = "app_settings"

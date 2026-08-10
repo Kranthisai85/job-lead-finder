@@ -281,3 +281,37 @@
 2026-08-10 14:47:01 [INFO] url=https://acme.example/ decision_makers_found=1 generic_contacts_found=0 best_contact=priya@acme.example best_contact_score=100 pages_scanned=2
 2026-08-10 14:47:25 [INFO] [PIPELINE] Starting run_id=8aaeffb9-54a4-48d5-97a5-22e6ca888762 service=LeadGenerationService
 2026-08-10 14:47:25 [INFO] [PIPELINE] Completed run_id=8aaeffb9-54a4-48d5-97a5-22e6ca888762 success=True processed=0 queued=0 duration_ms=0.00
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=1 error=No JSON object found in model response
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=2 error=No JSON object found in model response
+2026-08-10 17:26:34 [WARNING] ai_email_fallback company=Acme error=No JSON object found in model response
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=1 error=Missing required fields: opening, body, cta
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=2 error=Missing required fields: opening, body, cta
+2026-08-10 17:26:34 [WARNING] ai_email_fallback company=Acme error=Missing required fields: opening, body, cta
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=1 error=connection refused
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=2 error=connection refused
+2026-08-10 17:26:34 [WARNING] ai_email_fallback company=Acme error=connection refused
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=1 error=boom
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=2 error=boom
+2026-08-10 17:26:34 [WARNING] ai_email_fallback company=Acme error=boom
+2026-08-10 17:26:34 [WARNING] ollama_transient_failure attempt=1 error=type=ConnectError url=http://172.17.0.1:11434/api/generate timeout=60.0 cause=OSError: [Errno 111] Connection refused
+2026-08-10 17:26:34 [WARNING] ollama_transient_failure attempt=2 error=type=ConnectError message=down again url=http://172.17.0.1:11434/api/generate timeout=60.0
+2026-08-10 17:26:34 [WARNING] ollama_server_error attempt=1 error=type=HTTPStatusError message=Server Error url=http://ollama.local/api/generate timeout=12.0 status=503 body=model loading
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=1 error=timed out
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=2 error=timed out
+2026-08-10 17:26:34 [WARNING] ai_email_fallback company=Acme error=timed out
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=1 error=No JSON object found in model response
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=2 error=No JSON object found in model response
+2026-08-10 17:26:34 [WARNING] ai_email_fallback company=Acme error=No JSON object found in model response
+2026-08-10 17:26:34 [WARNING] ollama_model_missing configured=qwen2.5:1.5b available=llama3.2:3b falling_back=llama3.2:3b
+2026-08-10 17:26:34 [ERROR] ollama_model_configuration_error error=Ollama model 'qwen2.5:1.5b' not found and no installed models are available at http://localhost:11434. Pull a model or update OLLAMA_MODEL.
+2026-08-10 17:26:34 [WARNING] ollama_model_not_found attempt=1 error=type=HTTPStatusError message=Not Found url=http://ollama.local/api/generate timeout=120.0 status=404 body={"error":"model 'qwen2.5:1.5b' not found"}
+2026-08-10 17:26:34 [WARNING] ollama_model_not_found attempt=1 error=type=HTTPStatusError message=Not Found url=http://ollama.local/api/generate timeout=120.0 status=404 body={"error":"model 'missing:1b' not found"}
+2026-08-10 17:26:34 [WARNING] ollama_model_missing configured=missing:1b available=llama3.2:3b falling_back=llama3.2:3b
+2026-08-10 17:26:34 [WARNING] ollama_retry_with_fallback previous=missing:1b fallback=llama3.2:3b
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=1 error=boom
+2026-08-10 17:26:34 [WARNING] ai_email_generate_attempt_failed company=Acme attempt=2 error=boom
+2026-08-10 17:26:34 [WARNING] ai_email_fallback company=Acme error=boom
+2026-08-10 17:28:07 [ERROR] [EMAIL] send_failed queue_id=6a79bccf533850a06e1d6d52 reason=smtp failure
+2026-08-10 17:28:07 [WARNING] email_failed id=6a79bccf533850a06e1d6d52 retry_count=1 error=smtp failure
+2026-08-10 17:28:36 [ERROR] [EMAIL] send_failed queue_id=6a79bcecc5912c1c9a57723e reason=smtp failure
+2026-08-10 17:28:36 [WARNING] email_failed id=6a79bcecc5912c1c9a57723e retry_count=1 error=smtp failure

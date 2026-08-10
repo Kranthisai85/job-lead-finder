@@ -40,11 +40,23 @@ async def test_app_settings_default_and_update(settings_db: Any) -> None:
     service = AppSettingsService()
     defaults = await service.get_settings()
     assert defaults.skip_duplicate_companies is True
+    assert defaults.scheduler_hour == 9
+    assert defaults.scheduler_minute == 0
 
-    saved = await service.update_settings(AppSettingsUpdate(skip_duplicate_companies=False))
+    saved = await service.update_settings(
+        AppSettingsUpdate(
+            skip_duplicate_companies=False,
+            scheduler_hour=14,
+            scheduler_minute=30,
+        )
+    )
     assert saved.skip_duplicate_companies is False
+    assert saved.scheduler_hour == 14
+    assert saved.scheduler_minute == 30
     loaded = await service.get_settings()
     assert loaded.skip_duplicate_companies is False
+    assert loaded.scheduler_hour == 14
+    assert loaded.scheduler_minute == 30
 
 
 @pytest.mark.asyncio

@@ -12,6 +12,7 @@ from app.email.smtp_client import sanitize_smtp_error_message
 from app.email_queue.approval import ApprovalService
 from app.email_queue.deliverability import domain_accepts_mail, email_domain
 from app.email_queue.document import EmailQueueEntry
+from app.email_queue.placeholders import scrub_template_placeholders
 from app.email_queue.queue import compose_email_body
 from app.email_queue.repository import QueueRepository
 from app.email_queue.sender import EmailSender
@@ -119,14 +120,24 @@ class EmailQueueService:
         lead_score: float | None = None,
     ) -> EmailQueueItem:
         profile = await self.sender_profile.get_profile()
-        body = compose_email_body(generated_email, profile=profile)
+        body = compose_email_body(
+            generated_email,
+            profile=profile,
+            recipient_name=recipient_name,
+        )
+        subject = scrub_template_placeholders(
+            generated_email.subject,
+            recipient_name=recipient_name,
+            sender_name=(profile.display_name or ""),
+            keep_sender_placeholder=False,
+        )
         entry = await self.repository.create(
             {
                 "company_id": company_id,
                 "contact_id": contact_id,
                 "recipient_name": recipient_name,
                 "recipient_email": recipient_email,
-                "subject": generated_email.subject,
+                "subject": subject,
                 "body": body,
                 "status": EmailQueueStatus.PENDING,
                 "generation_source": generated_email.generation_source,
@@ -144,6 +155,8 @@ class EmailQueueService:
     async def list_pending(self) -> PendingEmailReviewList:
         """Dashboard review list: PENDING, APPROVED, READY_TO_SEND, FAILED."""
         entries = await self.repository.get_review_queue()
+        profile = await self.sender_profile.get_profile()
+        sender_name = (profile.display_name or "").strip()
         items: list[PendingEmailReviewItem] = []
         for entry in entries:
             company = await self.company_repository.find_by_id(entry.company_id)
@@ -158,6 +171,26 @@ class EmailQueueService:
                 score = company.qualification_score
                 status = company.qualification_status
                 reasons = list(company.qualification_reasons or [])
+            # Scrub leftovers so the UI never shows {{first_name}} etc.
+            subject = scrub_template_placeholders(
+                entry.subject or "",
+                recipient_name=entry.recipient_name or "",
+                sender_name=sender_name,
+                keep_sender_placeholder=False,
+            )
+            body = scrub_template_placeholders(
+                entry.body or "",
+                recipient_name=entry.recipient_name or "",
+                sender_name=sender_name,
+                keep_sender_placeholder=False,
+            )
+            if entry.status == EmailQueueStatus.PENDING and (
+                subject != (entry.subject or "") or body != (entry.body or "")
+            ):
+                await self.repository.update(
+                    str(entry.id),
+                    {"subject": subject, "body": body},
+                )
             items.append(
                 PendingEmailReviewItem(
                     id=str(entry.id),
@@ -169,8 +202,8 @@ class EmailQueueService:
                     qualification_score=score,
                     qualification_status=status,
                     qualification_reasons=reasons,
-                    subject=entry.subject,
-                    body=entry.body,
+                    subject=subject,
+                    body=body,
                     status=entry.status,
                     lead_score=entry.lead_score,
                     generation_source=entry.generation_source,
@@ -181,6 +214,50 @@ class EmailQueueService:
                 )
             )
         return PendingEmailReviewList(items=items, total=len(items))
+
+    async def update_draft(
+        self,
+        item_id: str,
+        *,
+        subject: str | None = None,
+        body: str | None = None,
+    ) -> EmailQueueItem | None:
+        """Edit subject/body for a PENDING review item before approve & send."""
+        entry = await self.repository.find_by_id_item(item_id)
+        if entry is None:
+            return None
+        if entry.status != EmailQueueStatus.PENDING:
+            return None
+
+        profile = await self.sender_profile.get_profile()
+        sender_name = (profile.display_name or "").strip()
+        updates: dict[str, str] = {}
+        if subject is not None:
+            updates["subject"] = scrub_template_placeholders(
+                subject,
+                recipient_name=entry.recipient_name or "",
+                sender_name=sender_name,
+                keep_sender_placeholder=False,
+            ).strip()
+            if not updates["subject"]:
+                raise ValueError("Subject cannot be empty")
+        if body is not None:
+            updates["body"] = scrub_template_placeholders(
+                body,
+                recipient_name=entry.recipient_name or "",
+                sender_name=sender_name,
+                keep_sender_placeholder=False,
+            ).strip()
+            if not updates["body"]:
+                raise ValueError("Body cannot be empty")
+        if not updates:
+            return self.repository.to_item(entry)
+
+        updated = await self.repository.update(item_id, updates)
+        if updated is None:
+            return None
+        self.logger.info("[EMAIL] draft_updated queue_id=%s fields=%s", item_id, list(updates))
+        return self.repository.to_item(updated)
 
     async def approve(self, item_id: str) -> EmailQueueItem | None:
         """Approve only (PENDING → APPROVED). Prefer approve_and_send for dashboard."""
@@ -386,14 +463,25 @@ class EmailQueueService:
         )
         try:
             profile = await self.sender_profile.get_profile()
-            body = finalize_body_for_send(entry.body, profile)
-            if body != entry.body:
+            body = finalize_body_for_send(
+                entry.body,
+                profile,
+                recipient_name=entry.recipient_name or "",
+            )
+            subject = scrub_template_placeholders(
+                entry.subject or "",
+                recipient_name=entry.recipient_name or "",
+                sender_name=(profile.display_name or ""),
+                keep_sender_placeholder=False,
+            )
+            if body != entry.body or subject != entry.subject:
                 entry.body = body
+                entry.subject = subject
                 await entry.save()
             await self.sender.send(
                 recipient_name=entry.recipient_name,
                 recipient_email=entry.recipient_email,
-                subject=entry.subject,
+                subject=subject,
                 body=body,
             )
             await self.approval.mark_sent(item_id)

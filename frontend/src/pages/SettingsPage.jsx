@@ -4,9 +4,25 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Layout from "../components/Layout";
 import { fetchAppSettings, updateAppSettings } from "../services/settingsService";
 
+function formatTime(hour, minute) {
+  return `${String(hour ?? 9).padStart(2, "0")}:${String(minute ?? 0).padStart(2, "0")}`;
+}
+
+function parseTime(value) {
+  const [hourText, minuteText] = String(value || "09:00").split(":");
+  const hour = Number.parseInt(hourText, 10);
+  const minute = Number.parseInt(minuteText, 10);
+  return {
+    hour: Number.isFinite(hour) ? Math.min(23, Math.max(0, hour)) : 9,
+    minute: Number.isFinite(minute) ? Math.min(59, Math.max(0, minute)) : 0
+  };
+}
+
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const [skipDuplicates, setSkipDuplicates] = useState(true);
+  const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [timezone, setTimezone] = useState("Asia/Kolkata");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -21,6 +37,10 @@ export default function SettingsPage() {
       return;
     }
     setSkipDuplicates(Boolean(settings.skip_duplicate_companies));
+    setScheduleTime(formatTime(settings.scheduler_hour, settings.scheduler_minute));
+    if (settings.scheduler_timezone) {
+      setTimezone(settings.scheduler_timezone);
+    }
   }, [data]);
 
   const saveMutation = useMutation({
@@ -38,7 +58,12 @@ export default function SettingsPage() {
 
   const onSubmit = (event) => {
     event.preventDefault();
-    saveMutation.mutate({ skip_duplicate_companies: skipDuplicates });
+    const { hour, minute } = parseTime(scheduleTime);
+    saveMutation.mutate({
+      skip_duplicate_companies: skipDuplicates,
+      scheduler_hour: hour,
+      scheduler_minute: minute
+    });
   };
 
   return (
@@ -47,7 +72,7 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-white">Settings</h1>
           <p className="mt-2 text-sm text-slate-400">
-            Control how lead generation handles companies you have already queued or emailed.
+            Control lead generation schedule and how duplicates are handled.
           </p>
         </div>
 
@@ -64,6 +89,22 @@ export default function SettingsPage() {
           onSubmit={onSubmit}
           className="space-y-5 rounded-xl border border-slate-800 bg-slate-950 p-6"
         >
+          <div>
+            <label htmlFor="scheduler-time" className="block text-sm font-medium text-slate-200">
+              Daily automatic run time
+            </label>
+            <p className="mt-1 text-sm text-slate-400">
+              Lead generation runs once every day at this time ({timezone}). Default is 09:00.
+            </p>
+            <input
+              id="scheduler-time"
+              type="time"
+              value={scheduleTime}
+              onChange={(event) => setScheduleTime(event.target.value || "09:00")}
+              className="mt-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-sky-500"
+            />
+          </div>
+
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"

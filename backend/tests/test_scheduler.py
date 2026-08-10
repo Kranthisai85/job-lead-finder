@@ -366,6 +366,28 @@ def test_scheduler_time_is_09_00(monkeypatch: pytest.MonkeyPatch) -> None:
     assert str(trigger) == str(expected)
 
 
+def test_scheduler_reschedule_updates_trigger(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "scheduler_hour", 9)
+    monkeypatch.setattr(settings, "scheduler_minute", 0)
+    monkeypatch.setattr(settings, "scheduler_timezone", "Asia/Kolkata")
+    monkeypatch.setattr(settings, "scheduler_enabled", True)
+    mock_scheduler = MagicMock()
+    mock_scheduler.running = False
+    mock_scheduler.get_jobs.return_value = []
+    lead = LeadScheduler(scheduler=mock_scheduler)
+    lead.start()
+    mock_scheduler.running = True
+
+    lead.reschedule(hour=15, minute=45)
+
+    assert lead.schedule_hour == 15
+    assert lead.schedule_minute == 45
+    assert mock_scheduler.add_job.call_count == 2
+    trigger = mock_scheduler.add_job.call_args.kwargs["trigger"]
+    expected = CronTrigger(hour=15, minute=45, timezone=ZoneInfo("Asia/Kolkata"))
+    assert str(trigger) == str(expected)
+
+
 @pytest.mark.asyncio
 async def test_scheduled_execution_calls_pipeline_once() -> None:
     lead_generation_service = AsyncMock()

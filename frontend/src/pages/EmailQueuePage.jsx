@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import Layout from "../components/Layout";
-import { approveEmail, fetchPendingEmails, skipEmail } from "../services/emailQueueService";
+import {
+  approveEmail,
+  fetchPendingEmails,
+  skipEmail,
+  updateEmailDraft
+} from "../services/emailQueueService";
 
 function StatusBadge({ status }) {
   const toneByStatus = {
@@ -24,11 +29,135 @@ function StatusBadge({ status }) {
   );
 }
 
+function EditableText({
+  label,
+  value,
+  multiline = false,
+  editable,
+  onSave,
+  saving
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value || "");
+
+  useEffect(() => {
+    if (!editing) {
+      setDraft(value || "");
+    }
+  }, [value, editing]);
+
+  const commit = async () => {
+    const next = draft.trim();
+    if (!next) {
+      setDraft(value || "");
+      setEditing(false);
+      return;
+    }
+    if (next === (value || "").trim()) {
+      setEditing(false);
+      return;
+    }
+    await onSave(next);
+    setEditing(false);
+  };
+
+  if (editing && editable) {
+    return (
+      <div>
+        <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+        {multiline ? (
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={() => {
+              void commit();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setDraft(value || "");
+                setEditing(false);
+              }
+            }}
+            rows={10}
+            disabled={saving}
+            className="mt-1 w-full whitespace-pre-wrap rounded-lg border border-sky-700 bg-slate-950 p-3 text-sm text-slate-100 outline-none focus:border-sky-500"
+          />
+        ) : (
+          <input
+            autoFocus
+            type="text"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={() => {
+              void commit();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void commit();
+              }
+              if (event.key === "Escape") {
+                setDraft(value || "");
+                setEditing(false);
+              }
+            }}
+            disabled={saving}
+            className="mt-1 w-full rounded-lg border border-sky-700 bg-slate-950 px-3 py-2 text-sm font-medium text-white outline-none focus:border-sky-500"
+          />
+        )}
+        <p className="mt-1 text-xs text-slate-500">Click away to save · Esc to cancel</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+      {multiline ? (
+        <pre
+          title={editable ? "Double-click to edit" : undefined}
+          onDoubleClick={() => {
+            if (editable) {
+              setEditing(true);
+            }
+          }}
+          className={[
+            "mt-1 whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-200",
+            editable ? "cursor-text hover:border-slate-600" : ""
+          ].join(" ")}
+        >
+          {value}
+        </pre>
+      ) : (
+        <p
+          title={editable ? "Double-click to edit" : undefined}
+          onDoubleClick={() => {
+            if (editable) {
+              setEditing(true);
+            }
+          }}
+          className={[
+            "mt-1 text-sm font-medium text-white",
+            editable ? "cursor-text rounded-md px-1 py-0.5 hover:bg-slate-800/80" : ""
+          ].join(" ")}
+        >
+          {value}
+        </p>
+      )}
+      {editable ? (
+        <p className="mt-1 text-xs text-slate-500">Double-click to edit before Approve &amp; Send</p>
+      ) : null}
+    </div>
+  );
+}
+
 export default function EmailQueuePage() {
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [localStatus, setLocalStatus] = useState({});
+  const [draftOverrides, setDraftOverrides] = useState({});
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["email-queue-pending"],
@@ -83,10 +212,35 @@ export default function EmailQueuePage() {
     }
   });
 
+  const saveDraftMutation = useMutation({
+    mutationFn: ({ itemId, subject, body }) => updateEmailDraft(itemId, { subject, body }),
+    onSuccess: async (response, variables) => {
+      setActionError("");
+      setActionMessage(response?.message || "Draft saved.");
+      const updated = response?.data;
+      if (updated) {
+        setDraftOverrides((current) => ({
+          ...current,
+          [variables.itemId]: {
+            subject: updated.subject,
+            body: updated.body
+          }
+        }));
+      }
+      await invalidateQueue();
+    },
+    onError: (mutationError) => {
+      setActionMessage("");
+      setActionError(mutationError.response?.data?.message || "Unable to save draft.");
+    }
+  });
+
   const items = data?.data?.items ?? [];
   const busyId =
-    approveMutation.isPending || skipMutation.isPending
-      ? approveMutation.variables || skipMutation.variables
+    approveMutation.isPending || skipMutation.isPending || saveDraftMutation.isPending
+      ? approveMutation.variables ||
+        skipMutation.variables ||
+        saveDraftMutation.variables?.itemId
       : null;
 
   return (
@@ -95,7 +249,7 @@ export default function EmailQueuePage() {
         <div>
           <h2 className="text-2xl font-semibold text-white">Email Queue</h2>
           <p className="text-sm text-slate-400">
-            Review pending drafts, then Approve &amp; Send in one click (or Skip).
+            Double-click subject or body to edit, then Approve &amp; Send (or Skip).
           </p>
         </div>
 
@@ -127,6 +281,9 @@ export default function EmailQueuePage() {
           {items.map((item) => {
             const displayStatus = localStatus[item.id] || item.status;
             const isBusy = busyId === item.id;
+            const canEdit = displayStatus === "PENDING";
+            const subject = draftOverrides[item.id]?.subject ?? item.subject;
+            const body = draftOverrides[item.id]?.body ?? item.body;
 
             return (
               <article
@@ -194,17 +351,34 @@ export default function EmailQueuePage() {
                   </div>
                 ) : null}
 
-                <div className="mt-4 space-y-2">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Subject</p>
-                    <p className="mt-1 text-sm font-medium text-white">{item.subject}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Body</p>
-                    <pre className="mt-1 whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-200">
-                      {item.body}
-                    </pre>
-                  </div>
+                <div className="mt-4 space-y-4">
+                  <EditableText
+                    label="Subject"
+                    value={subject}
+                    editable={canEdit}
+                    saving={isBusy}
+                    onSave={async (next) => {
+                      await saveDraftMutation.mutateAsync({
+                        itemId: item.id,
+                        subject: next,
+                        body
+                      });
+                    }}
+                  />
+                  <EditableText
+                    label="Body"
+                    value={body}
+                    multiline
+                    editable={canEdit}
+                    saving={isBusy}
+                    onSave={async (next) => {
+                      await saveDraftMutation.mutateAsync({
+                        itemId: item.id,
+                        subject,
+                        body: next
+                      });
+                    }}
+                  />
                 </div>
 
                 {displayStatus === "PENDING" ? (
