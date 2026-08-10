@@ -16,6 +16,8 @@ from app.ai.prompts import (
     build_prompt_context,
     is_generic_subject,
     parse_email_json,
+    should_replace_subject,
+    subject_uses_wrong_example_brand,
 )
 from app.ai.service import AIEmailService
 from app.ai.types import OllamaGenerateResponse
@@ -142,6 +144,9 @@ def test_prompt_building_includes_required_fields() -> None:
 def test_fallback_subject_is_varied_and_not_generic() -> None:
     assert is_generic_subject("quick thought on Univex Browser") is True
     assert is_generic_subject("Univex outside the browser?") is False
+    assert subject_uses_wrong_example_brand("Univex outside the browser?", "Frekil") is True
+    assert subject_uses_wrong_example_brand("Frekil outside the browser?", "Frekil") is False
+    assert should_replace_subject("Univex outside the browser?", "Frekil") is True
 
     subjects = {
         build_fallback_subject(
@@ -792,6 +797,27 @@ async def test_generic_ollama_subject_is_replaced() -> None:
     assert email.generation_source == "ollama"
     assert "quick thought on" not in email.subject.lower()
     assert is_generic_subject(email.subject) is False
+
+
+@pytest.mark.asyncio
+async def test_copied_univex_example_subject_is_replaced() -> None:
+    client = AsyncMock()
+    client.generate = AsyncMock(
+        return_value=ollama_json_response(
+            {
+                "subject": "Univex outside the browser?",
+                "opening": "Hi Ada,",
+                "body": "Body about Acme",
+                "cta": "Open to a chat?",
+            }
+        )
+    )
+    client.model = "qwen2.5:7b"
+
+    email = await AIEmailGenerator(client=client).generate_email(make_lead())
+    assert email.generation_source == "ollama"
+    assert "univex" not in email.subject.lower()
+    assert "Acme" in email.subject or "acme" in email.subject.lower()
 
 
 @pytest.mark.asyncio

@@ -12,7 +12,7 @@ from app.ai.prompts import (
     build_followup_prompt,
     build_prompt_context,
     build_subject_prompt,
-    is_generic_subject,
+    should_replace_subject,
     parse_email_json,
 )
 from app.ai.types import GeneratedEmail
@@ -112,7 +112,7 @@ class AIEmailGenerator:
                 )
                 duration_ms = round((perf_counter() - started) * 1000, 2)
                 subject = parsed.get("subject", "")
-                if is_generic_subject(subject):
+                if should_replace_subject(subject, context.company_name):
                     subject = build_fallback_subject(
                         company_name=context.company_name,
                         product_description=context.product_description,

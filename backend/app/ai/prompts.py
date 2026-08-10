@@ -42,12 +42,15 @@ Required structure (keep short):
    - Unique to THIS company/product. Use a product detail, audience, or mobile angle.
    - Max ~8 words. Lowercase ok. Question or incomplete thought is good.
    - Must feel different from other cold emails; never reuse a generic pattern.
-   - Good examples (style only — invent a fresh one for this company):
-     "Univex outside the browser?"
-     "Dojo on iPhone yet?"
-     "Pesterly without the nagging emails?"
-     "native app for Monster Battle Arena?"
-     "saw Zephyrax — pocket version?"
+   - Good examples (STYLE ONLY — invent a fresh subject for THIS company.
+     Never copy these example brands or phrases literally):
+     "<TheirProduct> outside the browser?"
+     "<TheirProduct> on iPhone yet?"
+     "<TheirProduct> without the nagging emails?"
+     "native app for <TheirProduct>?"
+     "saw <TheirProduct> — pocket version?"
+   - Never reuse leftover example brands (Univex, Dojo, Pesterly, Zephyrax, etc.)
+     unless that exact brand is the company you are writing to.
    - Hard ban these subject patterns (never use):
      "quick thought on …"
      "idea for …"
@@ -55,6 +58,7 @@ Required structure (keep short):
      "Exploring … Opportunities"
      "Flutter for …" / "Mobile idea for …"
      anything that is just "quick thought on {company}"
+     the literal string "Univex outside the browser?"
 2) opening — If a real first name is provided, write it literally, e.g. "Hi Priya,".
    If no real first name is provided, skip the greeting and start the body.
    Never invent names. Never write "Hi there,". Never write placeholders like
@@ -254,12 +258,39 @@ _BANNED_SUBJECT_PREFIXES = (
     "flutter idea for",
 )
 
+# Brands that only appeared as prompt examples — never allow them for other companies.
+_PROMPT_EXAMPLE_BRANDS = frozenset(
+    {
+        "univex",
+        "dojo",
+        "pesterly",
+        "zephyrax",
+        "monster battle arena",
+    }
+)
+
 
 def is_generic_subject(subject: str | None) -> bool:
     text = re.sub(r"\s+", " ", (subject or "").strip().lower())
     if not text:
         return True
     return any(text.startswith(prefix) for prefix in _BANNED_SUBJECT_PREFIXES)
+
+
+def subject_uses_wrong_example_brand(subject: str | None, company_name: str | None) -> bool:
+    """True when Ollama copied a prompt-example brand into another company's subject."""
+    text = re.sub(r"\s+", " ", (subject or "").strip().lower())
+    if not text:
+        return False
+    company = re.sub(r"\s+", " ", (company_name or "").strip().lower())
+    for brand in _PROMPT_EXAMPLE_BRANDS:
+        if brand in text and brand not in company:
+            return True
+    return False
+
+
+def should_replace_subject(subject: str | None, company_name: str | None) -> bool:
+    return is_generic_subject(subject) or subject_uses_wrong_example_brand(subject, company_name)
 
 
 def _product_keyword(product_description: str, company_name: str) -> str:
