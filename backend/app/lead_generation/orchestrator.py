@@ -134,6 +134,19 @@ class LeadGenerationOrchestrator:
             finalized.statistics.failed + len(finalized.errors),
             finalized.statistics.duration_ms,
         )
+        self.logger.info(
+            "[FUNNEL] collected=%d processed=%d queued=%d "
+            "skip_duplicate=%d skip_no_recipient=%d skip_no_mx=%d skip_low_score=%d "
+            "skip_other=%d",
+            finalized.statistics.total_collected,
+            finalized.statistics.processed,
+            finalized.statistics.queued,
+            finalized.statistics.skipped_duplicate,
+            finalized.statistics.skipped_no_recipient,
+            finalized.statistics.skipped_no_mx,
+            finalized.statistics.skipped_low_score,
+            finalized.statistics.skip_reasons.get("other_skip", 0),
+        )
         return finalized
 
     async def _process_company(
@@ -155,7 +168,7 @@ class LeadGenerationOrchestrator:
         if await self.email_queue_service.is_duplicate_company(website=seed.website):
             result.warnings.append(
                 "Skipped: company already in email queue "
-                "(pending/skipped/approved/sent/failed)"
+                "(pending/approved/ready/sending/sent)"
             )
             result.stage_timings.append(
                 StageTiming(stage="duplicate_skip", duration_ms=0.0, success=True)

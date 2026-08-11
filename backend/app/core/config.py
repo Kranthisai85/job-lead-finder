@@ -106,6 +106,8 @@ class Settings(BaseSettings):
     )
     collection_timeout: float = Field(default=300.0, ge=1.0)
     max_collectors: int = Field(default=10, ge=1, le=50)
+    # Max companies processed per daily/manual pipeline run (None/0 = no cap).
+    lead_generation_limit: int = Field(default=80, ge=0, le=500)
 
     scheduler_enabled: bool = True
     scheduler_timezone: str = "Asia/Kolkata"

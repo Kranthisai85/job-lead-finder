@@ -43,12 +43,17 @@ class DailyLeadGenerationJob(ScheduledJob):
     async def execute(self) -> ScheduledJobResult:
         run_id = str(uuid4())
         self.logger.info(
-            "[SCHEDULER] Starting scheduled pipeline run_id=%s timezone=%s",
+            "[SCHEDULER] Starting scheduled pipeline run_id=%s timezone=%s limit=%s",
             run_id,
             settings.scheduler_timezone,
+            settings.lead_generation_limit or "none",
         )
         try:
-            report = await self.lead_generation_service.run(run_id=run_id)
+            limit = settings.lead_generation_limit or None
+            report = await self.lead_generation_service.run(
+                run_id=run_id,
+                limit=limit,
+            )
         except Exception as exc:
             self.logger.error(
                 "[SCHEDULER] Pipeline failed run_id=%s error=%s",
@@ -75,6 +80,9 @@ class DailyLeadGenerationJob(ScheduledJob):
                 "queued": report.statistics.queued,
                 "qualified": report.statistics.qualified,
                 "emails_generated": report.statistics.emails_generated,
+                "skip_duplicate": report.statistics.skipped_duplicate,
+                "skip_no_recipient": report.statistics.skipped_no_recipient,
+                "skip_low_score": report.statistics.skipped_low_score,
             },
         )
 

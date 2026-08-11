@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import Layout from "../components/Layout";
@@ -10,14 +10,6 @@ const emptyForm = {
   github_url: "",
   phone_number: ""
 };
-
-function whatsappUrl(phone) {
-  const digits = String(phone || "").replace(/\D+/g, "");
-  if (digits.length < 8) {
-    return "";
-  }
-  return `https://wa.me/${digits}`;
-}
 
 export default function ProfilePage() {
   const queryClient = useQueryClient();
@@ -70,7 +62,7 @@ export default function ProfilePage() {
     });
   };
 
-  const waLink = useMemo(() => whatsappUrl(form.phone_number), [form.phone_number]);
+  const phone = form.phone_number.trim();
 
   return (
     <Layout>
@@ -80,8 +72,7 @@ export default function ProfilePage() {
           <p className="mt-2 text-sm text-slate-400">
             Your name, LinkedIn, GitHub, and phone are used in outbound email signatures. Save
             these before approving emails so{" "}
-            <code className="text-slate-300">{"{{sender_name}}"}</code> is replaced. Phone opens
-            WhatsApp when clicked.
+            <code className="text-slate-300">{"{{sender_name}}"}</code> is replaced.
           </p>
         </div>
 
@@ -130,7 +121,7 @@ export default function ProfilePage() {
           </label>
 
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-slate-300">Phone number (WhatsApp)</span>
+            <span className="text-sm font-medium text-slate-300">Phone number (call or WhatsApp)</span>
             <input
               type="tel"
               value={form.phone_number}
@@ -139,7 +130,7 @@ export default function ProfilePage() {
               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-slate-500"
             />
             <span className="block text-xs text-slate-500">
-              Include country code (e.g. +91…). Saved emails use a WhatsApp link.
+              Include country code (e.g. +91…). Shown in the signature as Call or WhatsApp.
             </span>
           </label>
 
@@ -155,25 +146,13 @@ export default function ProfilePage() {
         {form.display_name ? (
           <div className="rounded-xl border border-slate-800 bg-slate-950 p-6">
             <p className="text-xs uppercase tracking-[0.15em] text-slate-500">Signature preview</p>
-            <div className="mt-3 space-y-1 text-sm text-slate-300">
-              <p>Best regards,</p>
-              <p>{form.display_name.trim()}</p>
-              {form.linkedin_url.trim() ? <p>LinkedIn: {form.linkedin_url.trim()}</p> : null}
-              {form.github_url.trim() ? <p>GitHub: {form.github_url.trim()}</p> : null}
-              {waLink ? (
-                <p>
-                  WhatsApp:{" "}
-                  <a
-                    href={waLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sky-400 underline hover:text-sky-300"
-                  >
-                    {form.phone_number.trim() || waLink}
-                  </a>
-                </p>
-              ) : null}
-            </div>
+            <pre className="mt-3 whitespace-pre-wrap text-sm text-slate-300">
+              {`Best regards,\n${form.display_name.trim()}${
+                form.linkedin_url.trim() ? `\nLinkedIn: ${form.linkedin_url.trim()}` : ""
+              }${form.github_url.trim() ? `\nGitHub: ${form.github_url.trim()}` : ""}${
+                phone ? `\nCall or WhatsApp: ${phone}` : ""
+              }`}
+            </pre>
           </div>
         ) : null}
       </section>

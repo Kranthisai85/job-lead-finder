@@ -34,8 +34,12 @@ class LeadGenerationStatistics(BaseModel):
     emails_generated: int = 0
     queued: int = 0
     failed: int = 0
+    skipped_duplicate: int = 0
+    skipped_no_recipient: int = 0
+    skipped_no_mx: int = 0
+    skipped_low_score: int = 0
     duration_ms: float = 0.0
-
+    skip_reasons: dict[str, int] = Field(default_factory=dict)
 
 class LeadGenerationReport(BaseModel):
     statistics: LeadGenerationStatistics = Field(default_factory=LeadGenerationStatistics)

@@ -79,8 +79,8 @@ async def test_duplicate_company_detected_when_pending(settings_db: Any) -> None
 
 
 @pytest.mark.asyncio
-async def test_duplicate_skip_disabled_allows_requeue(settings_db: Any) -> None:
-    await AppSettingsService().update_settings(AppSettingsUpdate(skip_duplicate_companies=False))
+async def test_duplicate_skip_allows_retry_after_skipped(settings_db: Any) -> None:
+    await AppSettingsService().update_settings(AppSettingsUpdate(skip_duplicate_companies=True))
     await QueueRepository().create(
         {
             "company_id": "company1.example",

@@ -117,9 +117,10 @@ export default function SettingsPage() {
                 Skip duplicate companies
               </span>
               <span className="mt-1 block text-sm text-slate-400">
-                When on, companies (and recipient emails) already in the email queue as Pending,
-                Skipped, Approved, Sent, or Failed are not collected or emailed again. Turn off
-                only if you intentionally want to re-queue the same company.
+                When on, companies (and recipient emails) already Pending, Approved,
+                Ready, Sending, or Sent are not collected again. Previously Skipped or
+                Failed companies can be retried. Turn off only if you want to re-queue
+                even active/sent companies.
               </span>
             </span>
           </label>

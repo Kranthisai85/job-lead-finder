@@ -1,10 +1,29 @@
 from __future__ import annotations
 
+from collections import Counter
+
 from app.lead_generation.types import (
     LeadGenerationReport,
     LeadGenerationResult,
     LeadGenerationStatistics,
 )
+
+
+def _classify_skip(result: LeadGenerationResult) -> str | None:
+    if result.queued:
+        return None
+    blob = " ".join(result.warnings).lower()
+    if "duplicate" in blob:
+        return "duplicate"
+    if "no contact email" in blob or "no_recipient" in blob:
+        return "no_recipient"
+    if "no mail (mx)" in blob or "no_mx" in blob:
+        return "no_mx"
+    if "below min_lead_score" in blob or "below_min_score" in blob:
+        return "low_score"
+    if result.warnings:
+        return "other_skip"
+    return None
 
 
 def build_statistics(
@@ -20,6 +39,12 @@ def build_statistics(
     queued = sum(1 for item in results if item.queued)
     failed = sum(1 for item in results if not item.success)
 
+    skip_counts: Counter[str] = Counter()
+    for item in results:
+        reason = _classify_skip(item)
+        if reason:
+            skip_counts[reason] += 1
+
     return LeadGenerationStatistics(
         total_collected=total_collected,
         processed=processed,
@@ -28,7 +53,12 @@ def build_statistics(
         emails_generated=emails_generated,
         queued=queued,
         failed=failed,
+        skipped_duplicate=skip_counts.get("duplicate", 0),
+        skipped_no_recipient=skip_counts.get("no_recipient", 0),
+        skipped_no_mx=skip_counts.get("no_mx", 0),
+        skipped_low_score=skip_counts.get("low_score", 0),
         duration_ms=round(duration_ms, 2),
+        skip_reasons=dict(skip_counts),
     )
 
 

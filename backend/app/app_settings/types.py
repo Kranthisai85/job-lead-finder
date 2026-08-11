@@ -17,8 +17,8 @@ class AppSettingsUpdate(BaseModel):
     skip_duplicate_companies: bool = Field(
         default=True,
         description=(
-            "When true, skip companies (and recipient emails) that already exist "
-            "in the email queue as PENDING, SKIPPED, APPROVED, SENT, etc."
+            "When true, skip companies/recipients already PENDING, APPROVED, "
+            "READY_TO_SEND, SENDING, or SENT. SKIPPED/FAILED may be retried."
         ),
     )
     scheduler_hour: int = Field(

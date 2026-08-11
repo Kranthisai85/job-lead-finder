@@ -42,8 +42,7 @@ def test_build_signature_block_with_links() -> None:
         "Kranthi Sai\n"
         "LinkedIn: https://linkedin.com/in/kranthi\n"
         "GitHub: https://github.com/kranthi\n"
-        "WhatsApp: +91 98765 43210\n"
-        "https://wa.me/919876543210"
+        "Call or WhatsApp: +91 98765 43210"
     )
 
 
@@ -59,12 +58,11 @@ def test_finalize_body_replaces_placeholder() -> None:
         profile,
     )
     assert "{{sender_name}}" not in body
-    assert "https://wa.me/919876543210" in body
+    assert "wa.me" not in body
     assert body.endswith(
         "Best regards,\nKranthi Sai\nLinkedIn: https://linkedin.com/in/kranthi\n"
         "GitHub: https://github.com/kranthi\n"
-        "WhatsApp: +919876543210\n"
-        "https://wa.me/919876543210"
+        "Call or WhatsApp: +919876543210"
     )
 
 

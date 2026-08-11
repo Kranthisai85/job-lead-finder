@@ -28,16 +28,8 @@ def phone_digits(phone_number: str | None) -> str:
     return _NON_DIGIT_RE.sub("", phone_number or "")
 
 
-def whatsapp_url(phone_number: str | None) -> str | None:
-    """Build https://wa.me/<digits> for clickable WhatsApp chat."""
-    digits = phone_digits(phone_number)
-    if len(digits) < 8:
-        return None
-    return f"https://wa.me/{digits}"
-
-
 def build_signature_block(profile: SenderProfile | None) -> str:
-    """Plain-text signature: name + optional LinkedIn/GitHub/WhatsApp."""
+    """Plain-text signature: name + optional LinkedIn/GitHub/phone."""
     name = (profile.display_name if profile else "") or ""
     name = name.strip()
     lines = ["Best regards,"]
@@ -46,17 +38,12 @@ def build_signature_block(profile: SenderProfile | None) -> str:
         linkedin = (profile.linkedin_url or "").strip()
         github = (profile.github_url or "").strip()
         phone = (profile.phone_number or "").strip()
-        wa = whatsapp_url(phone)
         if linkedin:
             lines.append(f"LinkedIn: {linkedin}")
         if github:
             lines.append(f"GitHub: {github}")
-        if wa:
-            # Plain-text emails auto-linkify wa.me URLs when clicked.
-            display = phone or wa
-            lines.append(f"WhatsApp: {display}")
-            if display != wa:
-                lines.append(wa)
+        if phone and phone_digits(phone):
+            lines.append(f"Call or WhatsApp: {phone}")
     return "\n".join(lines)
 
 

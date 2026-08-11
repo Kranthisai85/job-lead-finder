@@ -8,9 +8,14 @@ from app.email_queue.document import EmailQueueEntry
 from app.email_queue.types import EmailQueueItem, EmailQueueStatus
 from app.repositories.base_repository import BaseRepository
 
-# Queue statuses that mean "already handled / do not re-collect".
-KNOWN_COMPANY_STATUSES: tuple[EmailQueueStatus, ...] = tuple(
-    status for status in EmailQueueStatus if status != EmailQueueStatus.CANCELLED
+# Block re-collection only while a company is still in an active outbound path.
+# SKIPPED / FAILED / CANCELLED may be tried again on later runs.
+KNOWN_COMPANY_STATUSES: tuple[EmailQueueStatus, ...] = (
+    EmailQueueStatus.PENDING,
+    EmailQueueStatus.APPROVED,
+    EmailQueueStatus.READY_TO_SEND,
+    EmailQueueStatus.SENDING,
+    EmailQueueStatus.SENT,
 )
 
 
