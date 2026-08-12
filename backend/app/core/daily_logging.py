@@ -1,14 +1,19 @@
-"""Daily pipeline run log files with retention (Step 38)."""
+"""Daily pipeline run log files with retention (Step 38).
+
+Filenames and line timestamps use the app timezone (Asia/Kolkata / IST).
+Retention keeps the newest LOG_RETENTION_DAYS daily files (default 7).
+"""
 
 from __future__ import annotations
 
 import logging
 import re
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 from app.core.config import settings
 from app.core.logger import get_logger
+from app.core.timezone import logging_time_converter, today_app
 
 DAILY_LOG_FILENAME_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})logs\.txt$")
 _DAILY_HANDLER_NAME = "lead_finder_daily_run"
@@ -16,7 +21,7 @@ _logger = get_logger(__name__)
 
 
 def daily_log_filename(day: date | None = None) -> str:
-    target = day or datetime.now().date()
+    target = day or today_app()
     return f"{target.isoformat()}logs.txt"
 
 
@@ -80,23 +85,23 @@ def prune_daily_logs(
 
 
 class DailyRunFileHandler(logging.FileHandler):
-    """Appends to logs/YYYY-MM-DDlogs.txt using the Step 38 format."""
+    """Appends to logs/YYYY-MM-DDlogs.txt using the Step 38 format (IST calendar day)."""
 
     def __init__(self, log_dir: str | Path) -> None:
         self._log_dir = Path(log_dir)
-        self._current_day = datetime.now().date()
+        self._current_day = today_app()
         filename = daily_log_path(log_dir=self._log_dir, day=self._current_day)
         super().__init__(filename, mode="a", encoding="utf-8", delay=True)
         self.set_name(_DAILY_HANDLER_NAME)
-        self.setFormatter(
-            logging.Formatter(
-                fmt="%(asctime)s [%(levelname)s] %(message)s",
-                datefmt="%Y-%m-%d %H:%M:%S",
-            )
+        formatter = logging.Formatter(
+            fmt="%(asctime)s [%(levelname)s] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
+        formatter.converter = logging_time_converter
+        self.setFormatter(formatter)
 
     def emit(self, record: logging.LogRecord) -> None:
-        today = datetime.now().date()
+        today = today_app()
         if today != self._current_day:
             self._current_day = today
             self.close()

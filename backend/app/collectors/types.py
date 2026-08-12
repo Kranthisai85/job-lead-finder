@@ -1,7 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+from app.core.timezone import now_app
 
 
 class CompanyLead(BaseModel):
@@ -10,7 +12,7 @@ class CompanyLead(BaseModel):
     description: str | None = None
     source: str
     tags: list[str] = Field(default_factory=list)
-    discovered_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    discovered_at: datetime = Field(default_factory=now_app)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

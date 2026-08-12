@@ -37,6 +37,7 @@ class LeadGenerationStatistics(BaseModel):
     skipped_duplicate: int = 0
     skipped_no_recipient: int = 0
     skipped_no_mx: int = 0
+    skipped_mailbox_rejected: int = 0
     skipped_low_score: int = 0
     duration_ms: float = 0.0
     skip_reasons: dict[str, int] = Field(default_factory=dict)

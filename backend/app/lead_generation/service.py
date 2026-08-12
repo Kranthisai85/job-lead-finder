@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from app.core.daily_logging import attach_daily_run_handler, detach_daily_run_handler
 from app.core.logger import get_logger, setup_logging
+from app.core.timezone import app_timezone_name
 from app.db.mongo import ensure_mongo_ready
 from app.lead_generation.orchestrator import LeadGenerationOrchestrator
 from app.lead_generation.types import LeadGenerationReport
@@ -26,7 +27,13 @@ class LeadGenerationService:
         active_run_id = run_id or str(uuid4())
         try:
             setup_logging()
-            attach_daily_run_handler()
+            daily_log = attach_daily_run_handler()
+            if daily_log is not None:
+                self.logger.info(
+                    "[PIPELINE] daily_log=%s timezone=%s",
+                    daily_log,
+                    app_timezone_name(),
+                )
         except Exception as exc:  # noqa: BLE001 — logging must not crash pipeline
             self.logger.error("daily_logging_setup_failed error=%s", exc)
 

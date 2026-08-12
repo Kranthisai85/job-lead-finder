@@ -10,7 +10,7 @@ from app.core.logger import get_logger
 from app.email.exceptions import SmtpError
 from app.email.smtp_client import sanitize_smtp_error_message
 from app.email_queue.approval import ApprovalService
-from app.email_queue.deliverability import domain_accepts_mail, email_domain
+from app.email_queue.deliverability import domain_accepts_mail, email_domain, mailbox_accepts_address
 from app.email_queue.document import EmailQueueEntry
 from app.email_queue.placeholders import scrub_template_placeholders
 from app.email_queue.queue import compose_email_body
@@ -439,6 +439,25 @@ class EmailQueueService:
         domain = email_domain(recipient or "")
         if domain and not await domain_accepts_mail(domain):
             message = f"No MX records for domain '{domain}'"
+            self.logger.error(
+                "[EMAIL] send_failed queue_id=%s reason=%s",
+                item_id,
+                message,
+            )
+            await self.approval.mark_failed(item_id, error=message)
+            return SendResult(
+                failed=1,
+                attempted=1,
+                success=False,
+                queue_id=item_id,
+                recipient=recipient,
+                status=EmailQueueStatus.FAILED,
+                error=message,
+                errors=[f"{item_id}: {message}"],
+            )
+
+        if recipient and not await mailbox_accepts_address(recipient):
+            message = f"Mailbox rejected by SMTP probe ({recipient})"
             self.logger.error(
                 "[EMAIL] send_failed queue_id=%s reason=%s",
                 item_id,

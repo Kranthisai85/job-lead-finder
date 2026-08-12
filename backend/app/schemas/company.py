@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
+
+from app.core.timezone import to_app_tz
 
 
 class CreateCompanyRequest(BaseModel):
@@ -27,6 +29,11 @@ class CompanyResponse(BaseModel):
     industry: str | None = None
     source: str | None = None
     created_at: datetime
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, value: datetime) -> str:
+        """Always expose timestamps in Asia/Kolkata (IST)."""
+        return to_app_tz(value).isoformat()
 
 
 class CompanyListResponse(BaseModel):

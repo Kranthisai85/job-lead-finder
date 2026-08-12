@@ -13,6 +13,7 @@ from app.collectors.registry import CollectorRegistry
 from app.collectors.types import CompanyLead
 from app.core.config import settings
 from app.utils.url import is_usable_company_website
+from app.core.timezone import now_app
 
 
 @CollectorRegistry.register("github")
@@ -50,7 +51,7 @@ class GitHubCollector(BaseCollector):
                 tags.append("india")
 
             pushed = item.get("pushed_at") or item.get("updated_at")
-            discovered = datetime.now(timezone.utc)
+            discovered = now_app()
             if isinstance(pushed, str) and pushed:
                 try:
                     discovered = datetime.fromisoformat(pushed.replace("Z", "+00:00"))

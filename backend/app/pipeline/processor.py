@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timezone
 from time import perf_counter
 from typing import Any
 
@@ -11,6 +10,7 @@ from app.company_intelligence.service import CompanyIntelligenceService
 from app.company_profile.service import CompanyProfileService
 from app.contact_discovery.service import ContactDiscoveryService
 from app.core.logger import get_logger
+from app.core.timezone import now_app
 from app.crawler.base import HttpWebsiteCrawler
 from app.crawler.service import WebsiteCrawlerService
 from app.crawler.types import WebsiteProfile
@@ -116,7 +116,7 @@ class LeadProcessor:
 
     async def process(self, startup: StartupSeed) -> CompleteLead:
         started = perf_counter()
-        started_at = datetime.now(timezone.utc)
+        started_at = now_app()
         metadata = ProcessingMetadata(started_at=started_at)
         lead = CompleteLead(startup=startup, processing=metadata)
 
@@ -141,7 +141,7 @@ class LeadProcessor:
                 stage="qualification",
                 func=lambda: self.qualification_service.qualify(company_lead),
             )
-            finished_at = datetime.now(timezone.utc)
+            finished_at = now_app()
             metadata.finished_at = finished_at
             metadata.total_duration_ms = round((perf_counter() - started) * 1000, 2)
             metadata.success = len(metadata.errors) == 0
@@ -253,7 +253,7 @@ class LeadProcessor:
                 else None
             ),
             source=startup.source,
-            created_at=datetime.now(timezone.utc),
+            created_at=now_app(),
         )
 
         intelligence = self._run_sync_stage(
@@ -282,7 +282,7 @@ class LeadProcessor:
         else:
             metadata.warnings.append("Skipped email patterns because LeadIntelligence is missing")
 
-        finished_at = datetime.now(timezone.utc)
+        finished_at = now_app()
         metadata.finished_at = finished_at
         metadata.total_duration_ms = round((perf_counter() - started) * 1000, 2)
         metadata.success = len(metadata.errors) == 0

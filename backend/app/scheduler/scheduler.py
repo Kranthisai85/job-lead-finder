@@ -25,6 +25,7 @@ from app.scheduler.jobs import (
 from app.scheduler.registry import ScheduledJobRegistry
 from app.scheduler.types import JobExecutionMetrics, ScheduledJobResult, SchedulerStatus
 from app.source_manager.service import SourceCollectionService
+from app.core.timezone import now_app
 
 
 class LeadScheduler:
@@ -200,7 +201,7 @@ class LeadScheduler:
         return _runner
 
     async def _execute_job(self, job: ScheduledJob) -> ScheduledJobResult:
-        started_at = datetime.now(timezone.utc)
+        started_at = now_app()
         metrics = self._ensure_metrics(job.name)
         metrics.started_at = started_at
         metrics.error = None
@@ -221,7 +222,7 @@ class LeadScheduler:
                 errors=[str(exc)],
             )
 
-        finished_at = datetime.now(timezone.utc)
+        finished_at = now_app()
         metrics.finished_at = finished_at
         metrics.duration_ms = result.duration_ms
         metrics.success = result.success

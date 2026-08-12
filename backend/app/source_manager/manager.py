@@ -10,6 +10,7 @@ from app.core.logger import get_logger
 from app.source_manager.registry import SourceRegistry
 from app.source_manager.types import CollectorExecution, CollectorStatistics, SourceCollectionReport
 from app.utils.url import canonical_lead_website, website_identity
+from app.core.timezone import now_app
 
 
 class StartupSourceManager:
@@ -46,7 +47,7 @@ class StartupSourceManager:
         )
 
         for source_name in sources:
-            execution_started = datetime.now(timezone.utc)
+            execution_started = now_app()
             stage_started = perf_counter()
             self.logger.info("collector=%s status=started", source_name)
 
@@ -57,7 +58,7 @@ class StartupSourceManager:
                     timeout=self.collection_timeout,
                 )
                 duration_ms = round((perf_counter() - stage_started) * 1000, 2)
-                finished_at = datetime.now(timezone.utc)
+                finished_at = now_app()
 
                 all_leads.extend(leads)
                 statistics.append(
@@ -86,7 +87,7 @@ class StartupSourceManager:
                 )
             except TimeoutError as exc:
                 duration_ms = round((perf_counter() - stage_started) * 1000, 2)
-                finished_at = datetime.now(timezone.utc)
+                finished_at = now_app()
                 error = (
                     str(exc).strip() or f"collection timed out after {self.collection_timeout:.0f}s"
                 )
@@ -118,7 +119,7 @@ class StartupSourceManager:
                 )
             except Exception as exc:
                 duration_ms = round((perf_counter() - stage_started) * 1000, 2)
-                finished_at = datetime.now(timezone.utc)
+                finished_at = now_app()
                 error = str(exc).strip() or type(exc).__name__
                 statistics.append(
                     CollectorStatistics(

@@ -1,6 +1,7 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from app.contact_discovery.types import ContactDiscoveryReport
+from app.core.timezone import now_app
 from app.crawler.types import WebsiteProfile
 from app.intelligence.types import PIPELINE_VERSION, LeadIntelligence, LeadIntelligenceMetadata
 from app.mobile_detection.types import MobileAppDetectionResult
@@ -20,7 +21,7 @@ class LeadIntelligenceBuilder:
         self._collector_name: str | None = None
         self._processing_time_ms: float = 0.0
         self._pipeline_version: str = PIPELINE_VERSION
-        self._created_at: datetime = datetime.now(timezone.utc)
+        self._created_at: datetime = now_app()
 
     def with_company(self, company: CompanyResponse) -> "LeadIntelligenceBuilder":
         self._company = company

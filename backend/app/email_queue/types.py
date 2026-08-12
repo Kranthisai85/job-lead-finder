@@ -3,7 +3,15 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
+
+from app.core.timezone import to_app_tz
+
+
+def _serialize_ist(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return to_app_tz(value).isoformat()
 
 
 class EmailQueueStatus(str, Enum):
@@ -34,6 +42,10 @@ class EmailQueueItem(BaseModel):
     lead_score: float | None = None
     retry_count: int = 0
 
+    @field_serializer("created_at", "approved_at", "sent_at")
+    def serialize_timestamps(self, value: datetime | None) -> str | None:
+        return _serialize_ist(value)
+
 
 class PendingEmailReviewItem(BaseModel):
     """Queue item enriched for dashboard approval review."""
@@ -56,6 +68,10 @@ class PendingEmailReviewItem(BaseModel):
     error_message: str | None = None
     sent_at: datetime | None = None
     approved_at: datetime | None = None
+
+    @field_serializer("created_at", "approved_at", "sent_at")
+    def serialize_timestamps(self, value: datetime | None) -> str | None:
+        return _serialize_ist(value)
 
 
 class PendingEmailReviewList(BaseModel):

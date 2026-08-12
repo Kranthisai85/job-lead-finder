@@ -1,9 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.contact_discovery.types import ContactCandidate, ContactDiscoveryReport
+from app.core.timezone import now_app
 from app.crawler.types import WebsiteProfile
 from app.mobile_detection.types import MobileAppDetectionResult
 from app.qualification.types import QualificationResult
@@ -18,7 +19,7 @@ FOUNDER_ROLES = {"founder", "co-founder", "ceo", "owner"}
 class LeadIntelligenceMetadata(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=now_app)
     pipeline_version: str = PIPELINE_VERSION
     collector_name: str | None = None
     processing_time_ms: float = 0.0

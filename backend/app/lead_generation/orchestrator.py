@@ -9,7 +9,7 @@ from app.ai.types import GeneratedEmail
 from app.collectors.types import CompanyLead
 from app.contact_discovery.validators import is_outbound_safe_email
 from app.core.logger import get_logger
-from app.email_queue.deliverability import domain_accepts_mail, email_domain
+from app.email_queue.deliverability import domain_accepts_mail, email_domain, mailbox_accepts_address
 from app.email_queue.service import EmailQueueService
 from app.email_queue.types import EmailQueueItem
 from app.lead_generation.statistics import build_statistics, finalize_report
@@ -136,14 +136,15 @@ class LeadGenerationOrchestrator:
         )
         self.logger.info(
             "[FUNNEL] collected=%d processed=%d queued=%d "
-            "skip_duplicate=%d skip_no_recipient=%d skip_no_mx=%d skip_low_score=%d "
-            "skip_other=%d",
+            "skip_duplicate=%d skip_no_recipient=%d skip_no_mx=%d "
+            "skip_mailbox_rejected=%d skip_low_score=%d skip_other=%d",
             finalized.statistics.total_collected,
             finalized.statistics.processed,
             finalized.statistics.queued,
             finalized.statistics.skipped_duplicate,
             finalized.statistics.skipped_no_recipient,
             finalized.statistics.skipped_no_mx,
+            finalized.statistics.skipped_mailbox_rejected,
             finalized.statistics.skipped_low_score,
             finalized.statistics.skip_reasons.get("other_skip", 0),
         )
@@ -316,6 +317,15 @@ class LeadGenerationOrchestrator:
                 )
                 self.logger.info(
                     "[QUEUE] company=%s skipped reason=no_mx email=%s",
+                    seed.name,
+                    recipient["email"],
+                )
+            elif not await mailbox_accepts_address(recipient["email"]):
+                result.warnings.append(
+                    f"Skipped: mailbox rejected by SMTP probe ({recipient['email']})"
+                )
+                self.logger.info(
+                    "[QUEUE] company=%s skipped reason=mailbox_rejected email=%s",
                     seed.name,
                     recipient["email"],
                 )

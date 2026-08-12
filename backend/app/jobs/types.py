@@ -1,14 +1,16 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
+from app.core.timezone import now_app
+
 
 class JobContext(BaseModel):
     job_id: str = Field(default_factory=lambda: str(uuid4()))
     job_type: str
-    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = Field(default_factory=now_app)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

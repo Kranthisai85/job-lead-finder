@@ -14,11 +14,12 @@ from app.collectors.rss_client import default_rss_feeds, fetch_rss_items
 from app.collectors.types import CompanyLead
 from app.core.config import settings
 from app.utils.url import is_usable_company_website
+from app.core.timezone import now_app
 
 
 def _parse_published(value: str | None) -> datetime:
     if not value:
-        return datetime.now(timezone.utc)
+        return now_app()
     try:
         parsed = parsedate_to_datetime(value)
         if parsed.tzinfo is None:
@@ -29,7 +30,7 @@ def _parse_published(value: str | None) -> datetime:
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
-        return datetime.now(timezone.utc)
+        return now_app()
 
 
 def normalize_rss_items(

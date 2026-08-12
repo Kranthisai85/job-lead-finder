@@ -10,25 +10,9 @@ import {
   fetchCompanies,
   updateCompany
 } from "../services/companyService";
+import { formatIstDateTime } from "../utils/datetime";
 
 const PAGE_SIZE = 20;
-
-function formatCreatedAt(value) {
-  if (!value) {
-    return "—";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-  return date.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
 
 export default function CompaniesPage() {
   const queryClient = useQueryClient();
@@ -222,7 +206,7 @@ export default function CompaniesPage() {
                           </button>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-300">
-                          {formatCreatedAt(company.created_at)}
+                          {formatIstDateTime(company.created_at)}
                         </td>
                       </tr>
                     ))}

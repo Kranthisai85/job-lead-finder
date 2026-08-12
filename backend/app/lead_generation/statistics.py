@@ -19,6 +19,8 @@ def _classify_skip(result: LeadGenerationResult) -> str | None:
         return "no_recipient"
     if "no mail (mx)" in blob or "no_mx" in blob:
         return "no_mx"
+    if "mailbox rejected" in blob or "mailbox_rejected" in blob:
+        return "mailbox_rejected"
     if "below min_lead_score" in blob or "below_min_score" in blob:
         return "low_score"
     if result.warnings:
@@ -56,6 +58,7 @@ def build_statistics(
         skipped_duplicate=skip_counts.get("duplicate", 0),
         skipped_no_recipient=skip_counts.get("no_recipient", 0),
         skipped_no_mx=skip_counts.get("no_mx", 0),
+        skipped_mailbox_rejected=skip_counts.get("mailbox_rejected", 0),
         skipped_low_score=skip_counts.get("low_score", 0),
         duration_ms=round(duration_ms, 2),
         skip_reasons=dict(skip_counts),

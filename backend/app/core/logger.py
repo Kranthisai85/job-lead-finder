@@ -4,6 +4,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from app.core.config import settings
+from app.core.timezone import logging_time_converter
 
 request_id_ctx: ContextVar[str] = ContextVar("request_id", default="-")
 
@@ -16,6 +17,15 @@ class RequestIdFilter(logging.Filter):
         return True
 
 
+def _build_formatter() -> logging.Formatter:
+    formatter = logging.Formatter(
+        fmt="%(asctime)s | %(request_id)s | %(levelname)s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    formatter.converter = logging_time_converter
+    return formatter
+
+
 def setup_logging() -> None:
     global _LOGGING_CONFIGURED
     if _LOGGING_CONFIGURED:
@@ -24,10 +34,7 @@ def setup_logging() -> None:
     log_dir = Path(settings.log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    formatter = logging.Formatter(
-        fmt="%(asctime)s | %(request_id)s | %(levelname)s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    formatter = _build_formatter()
     request_id_filter = RequestIdFilter()
 
     root_logger = logging.getLogger()

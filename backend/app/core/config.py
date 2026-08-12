@@ -140,6 +140,15 @@ class Settings(BaseSettings):
     from_email: str = ""
     dry_run: bool = True
 
+    # SMTP RCPT TO mailbox probe (no DATA / no send). Catches 550 No Such User.
+    smtp_mailbox_verify_enabled: bool = True
+    smtp_mailbox_verify_port: int = Field(default=25, ge=1, le=65535)
+    smtp_mailbox_verify_connect_timeout: float = Field(default=30.0, ge=1.0)
+    smtp_mailbox_verify_read_timeout: float = Field(default=5.0, ge=0.5)
+    smtp_mailbox_verify_debug: bool = False
+    # If outbound port 25 is blocked, keep True so the pipeline is not empty.
+    smtp_mailbox_verify_fail_open: bool = True
+
     @property
     def effective_smtp_from_email(self) -> str:
         return (self.smtp_from_email or self.from_email or "").strip()

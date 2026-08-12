@@ -12,6 +12,7 @@ from app.collectors.registry import CollectorRegistry
 from app.collectors.types import CompanyLead
 from app.core.config import settings
 from app.utils.url import is_usable_company_website
+from app.core.timezone import now_app
 
 
 @CollectorRegistry.register("hackernews")
@@ -44,7 +45,7 @@ class HackerNewsCollector(BaseCollector):
                 extra=f"{title} {story_text}",
             )
             created = item.get("created_at")
-            discovered = datetime.now(timezone.utc)
+            discovered = now_app()
             if isinstance(created, str) and created:
                 try:
                     discovered = datetime.fromisoformat(created.replace("Z", "+00:00"))

@@ -22,10 +22,14 @@ services:
     env_file:
       - backend/.env
     environment:
+      TZ: Asia/Kolkata
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       OLLAMA_TIMEOUT: ${OLLAMA_TIMEOUT:-120}
       OLLAMA_TEMPERATURE: ${OLLAMA_TEMPERATURE:-0.45}
       OLLAMA_MAX_TOKENS: ${OLLAMA_MAX_TOKENS:-512}
+    volumes:
+      # Persist daily YYYY-MM-DDlogs.txt + app.log on the VPS host (max 7 daily files).
+      - ./backend/logs:/app/logs
     depends_on:
       mongodb:
         condition: service_healthy

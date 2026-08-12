@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
 from app.company_intelligence.models import CompanyIntelligenceReport
 from app.company_profile.types import CompanyProfile
 from app.contact_discovery.types import ContactDiscoveryReport
+from app.core.timezone import now_app
 from app.crawler.types import WebsiteProfile
 from app.email_patterns.types import EmailPatternReport
 from app.founder_enrichment.models import FounderEnrichmentReport
@@ -37,7 +38,7 @@ class StageTiming(BaseModel):
 
 class ProcessingMetadata(BaseModel):
     pipeline_version: str = PIPELINE_VERSION
-    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    started_at: datetime = Field(default_factory=now_app)
     finished_at: datetime | None = None
     total_duration_ms: float = 0.0
     stage_timings: list[StageTiming] = Field(default_factory=list)

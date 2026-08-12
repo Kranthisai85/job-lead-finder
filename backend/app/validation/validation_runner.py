@@ -31,6 +31,7 @@ from app.technology.service import TechnologyDetectionService
 from app.utils.url import normalize_website
 from app.validation.report import render_report
 from app.validation.types import (
+from app.core.timezone import now_app
     CompanyValidationResult,
     StartupSeed,
     ValidationReport,
@@ -274,7 +275,7 @@ class ValidationPipeline:
             description=startup.description or profile.description,
             industry=None,
             source=startup.source,
-            created_at=datetime.now(timezone.utc),
+            created_at=now_app(),
         )
 
         try:

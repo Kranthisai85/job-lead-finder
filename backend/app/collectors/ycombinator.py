@@ -12,6 +12,7 @@ from app.collectors.types import CompanyLead
 from app.collectors.ycombinator_client import fetch_yc_companies
 from app.core.config import settings
 from app.utils.url import is_usable_company_website
+from app.core.timezone import now_app
 
 
 @CollectorRegistry.register("ycombinator")
@@ -54,7 +55,7 @@ class YCombinatorCollector(BaseCollector):
                 tags.append("india")
 
             launched_at = item.get("launched_at")
-            discovered = datetime.now(timezone.utc)
+            discovered = now_app()
             if isinstance(launched_at, (int, float)) and launched_at > 0:
                 discovered = datetime.fromtimestamp(float(launched_at), tz=timezone.utc)
 

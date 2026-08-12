@@ -13,6 +13,7 @@ from app.collectors.registry import CollectorRegistry
 from app.collectors.types import CompanyLead
 from app.core.config import settings
 from app.utils.url import is_usable_company_website
+from app.core.timezone import now_app
 
 
 @CollectorRegistry.register("reddit")
@@ -58,7 +59,7 @@ class RedditCollector(BaseCollector):
                 tags.append("india")
 
             created = item.get("created_utc")
-            discovered = datetime.now(timezone.utc)
+            discovered = now_app()
             if isinstance(created, (int, float)) and created > 0:
                 discovered = datetime.fromtimestamp(float(created), tz=timezone.utc)
 

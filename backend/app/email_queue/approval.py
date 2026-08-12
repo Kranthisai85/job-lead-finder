@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
 
 from app.core.logger import get_logger
+from app.core.timezone import now_app
 from app.email_queue.repository import QueueRepository
 from app.email_queue.transitions import assert_transition_allowed
 from app.email_queue.types import EmailQueueItem, EmailQueueStatus
@@ -22,7 +22,7 @@ class ApprovalService:
         return await self._transition(
             item_id,
             EmailQueueStatus.APPROVED,
-            extra={"approved_at": datetime.now(timezone.utc), "error_message": None},
+            extra={"approved_at": now_app(), "error_message": None},
             log_action="approved",
         )
 
@@ -45,7 +45,7 @@ class ApprovalService:
         return await self._transition(
             item_id,
             EmailQueueStatus.SENT,
-            extra={"sent_at": datetime.now(timezone.utc), "error_message": None},
+            extra={"sent_at": now_app(), "error_message": None},
             log_action="sent",
         )
 

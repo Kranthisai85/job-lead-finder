@@ -24,6 +24,7 @@ from app.collectors.types import CompanyLead
 from app.exceptions import DuplicateRecordError
 from app.schemas.company import CreateCompanyRequest
 from app.utils.url import is_usable_company_website
+from app.core.timezone import now_app
 
 
 @CollectorRegistry.register("producthunt")
@@ -141,7 +142,7 @@ class ProductHuntCollector(BaseCollector):
             description=(str(item["tagline"]) if item.get("tagline") else None),
             source="producthunt",
             tags=topics,
-            discovered_at=parsed_launch_date or datetime.now(timezone.utc),
+            discovered_at=parsed_launch_date or now_app(),
             metadata=metadata,
         )
         return lead, True

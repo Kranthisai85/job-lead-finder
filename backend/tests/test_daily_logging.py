@@ -25,6 +25,25 @@ from app.source_manager.types import SourceCollectionReport
 from tests.test_lead_generation import build_orchestrator
 
 
+def test_daily_log_filename_uses_ist_calendar(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    fixed = datetime(2026, 8, 12, 1, 30, tzinfo=ZoneInfo("Asia/Kolkata"))
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # noqa: ANN001
+            if tz is None:
+                return fixed.replace(tzinfo=None)
+            return fixed.astimezone(tz)
+
+    monkeypatch.setattr("app.core.timezone.datetime", _FrozenDateTime)
+    assert daily_log_filename() == "2026-08-12logs.txt"
+
+
 def test_daily_log_filename_format() -> None:
     assert daily_log_filename(date(2026, 8, 9)) == "2026-08-09logs.txt"
 
