@@ -7,11 +7,17 @@ from typing import TypeVar
 from app.ai.service import AIEmailService
 from app.ai.types import GeneratedEmail
 from app.collectors.types import CompanyLead
-from app.contact_discovery.validators import is_outbound_safe_email
+from app.contact_discovery.validators import is_hiring_inbox_email, is_outbound_safe_email
+from app.core.config import settings
 from app.core.logger import get_logger
 from app.email_queue.deliverability import domain_accepts_mail, email_domain, mailbox_accepts_address
 from app.email_queue.service import EmailQueueService
 from app.email_queue.types import EmailQueueItem
+from app.outreach.opportunity import (
+    OutreachMode,
+    classify_outreach_mode,
+    has_opportunity_signal,
+)
 from app.lead_generation.statistics import (
     build_statistics,
     finalize_report,
@@ -172,7 +178,8 @@ class LeadGenerationOrchestrator:
         self.logger.info(
             "[FUNNEL] collected=%d processed=%d queued=%d "
             "skip_duplicate=%d skip_no_recipient=%d skip_no_mx=%d "
-            "skip_mailbox_rejected=%d skip_low_score=%d skip_other=%d",
+            "skip_mailbox_rejected=%d skip_low_score=%d skip_no_opportunity=%d "
+            "skip_other=%d",
             stats.total_collected,
             stats.processed,
             stats.queued,
@@ -181,6 +188,7 @@ class LeadGenerationOrchestrator:
             stats.skipped_no_mx,
             stats.skipped_mailbox_rejected,
             stats.skipped_low_score,
+            stats.skipped_no_opportunity,
             stats.skip_reasons.get("other_skip", 0),
         )
         self.logger.info(
@@ -339,81 +347,102 @@ class LeadGenerationOrchestrator:
                 )
 
         if enqueue_emails and generated_email is not None:
-            recipient = self._best_recipient(lead)
-            company_id = result.company_id or self._fallback_company_id(seed)
-            contact_id = self._fallback_contact_id(lead, recipient)
-            if not recipient:
-                result.warnings.append("No contact email available for queue")
-                self.logger.info("[QUEUE] company=%s skipped reason=no_recipient", seed.name)
-            elif await self.email_queue_service.is_duplicate_recipient(
-                recipient_email=recipient["email"]
+            outreach_mode = classify_outreach_mode(lead)
+            if (
+                settings.enqueue_require_opportunity_signal
+                and not has_opportunity_signal(lead)
             ):
                 result.warnings.append(
-                    f"Skipped: recipient {recipient['email']} already in email queue"
+                    "Skipped: no opportunity signal (need mobile/Flutter hiring "
+                    "or freelance no-mobile fit)"
                 )
                 self.logger.info(
-                    "[QUEUE] company=%s skipped reason=duplicate_recipient email=%s",
+                    "[QUEUE] company=%s skipped reason=no_opportunity mode=%s",
                     seed.name,
-                    recipient["email"],
-                )
-            elif not await domain_accepts_mail(email_domain(recipient["email"])):
-                result.warnings.append(
-                    f"Skipped: no mail (MX) records for {email_domain(recipient['email'])}"
-                )
-                self.logger.info(
-                    "[QUEUE] company=%s skipped reason=no_mx email=%s",
-                    seed.name,
-                    recipient["email"],
-                )
-            elif not await mailbox_accepts_address(recipient["email"]):
-                result.warnings.append(
-                    f"Skipped: mailbox rejected by SMTP probe ({recipient['email']})"
-                )
-                self.logger.info(
-                    "[QUEUE] company=%s skipped reason=mailbox_rejected email=%s",
-                    seed.name,
-                    recipient["email"],
-                )
-            elif not eligible:
-                result.warnings.append(
-                    f"Lead score {outbound_score.score} below MIN_LEAD_SCORE "
-                    f"{self.lead_scoring_service.min_lead_score}"
-                )
-                self.logger.info(
-                    "[QUEUE] company=%s skipped reason=below_min_score score=%d status=%s",
-                    seed.name,
-                    outbound_score.score,
-                    outbound_score.status.value,
+                    outreach_mode.value,
                 )
             else:
-                queued_item: EmailQueueItem | None
-                queued_item, queue_timing = await self._run_stage(
-                    "enqueue",
-                    self.email_queue_service.enqueue(
-                        generated_email=generated_email,
-                        company_id=company_id,
-                        contact_id=contact_id,
-                        recipient_name=recipient["name"],
-                        recipient_email=recipient["email"],
-                        lead_score=float(outbound_score.score),
-                    ),
+                recipient = self._best_recipient(
+                    lead,
+                    prefer_hiring_inbox=outreach_mode == OutreachMode.HIRING,
                 )
-                result.stage_timings.append(queue_timing)
-                if queue_timing.success and queued_item is not None:
-                    result.queued = True
+                company_id = result.company_id or self._fallback_company_id(seed)
+                contact_id = self._fallback_contact_id(lead, recipient)
+                if not recipient:
+                    result.warnings.append("No contact email available for queue")
                     self.logger.info(
-                        "[QUEUE] company=%s status=%s queue_id=%s",
+                        "[QUEUE] company=%s skipped reason=no_recipient", seed.name
+                    )
+                elif await self.email_queue_service.is_duplicate_recipient(
+                    recipient_email=recipient["email"]
+                ):
+                    result.warnings.append(
+                        f"Skipped: recipient {recipient['email']} already in email queue"
+                    )
+                    self.logger.info(
+                        "[QUEUE] company=%s skipped reason=duplicate_recipient email=%s",
                         seed.name,
-                        queued_item.status.value,
-                        queued_item.id,
+                        recipient["email"],
+                    )
+                elif not await domain_accepts_mail(email_domain(recipient["email"])):
+                    result.warnings.append(
+                        f"Skipped: no mail (MX) records for {email_domain(recipient['email'])}"
+                    )
+                    self.logger.info(
+                        "[QUEUE] company=%s skipped reason=no_mx email=%s",
+                        seed.name,
+                        recipient["email"],
+                    )
+                elif not await mailbox_accepts_address(recipient["email"]):
+                    result.warnings.append(
+                        f"Skipped: mailbox rejected by SMTP probe ({recipient['email']})"
+                    )
+                    self.logger.info(
+                        "[QUEUE] company=%s skipped reason=mailbox_rejected email=%s",
+                        seed.name,
+                        recipient["email"],
+                    )
+                elif not eligible:
+                    result.warnings.append(
+                        f"Lead score {outbound_score.score} below MIN_LEAD_SCORE "
+                        f"{self.lead_scoring_service.min_lead_score}"
+                    )
+                    self.logger.info(
+                        "[QUEUE] company=%s skipped reason=below_min_score score=%d status=%s",
+                        seed.name,
+                        outbound_score.score,
+                        outbound_score.status.value,
                     )
                 else:
-                    result.warnings.append(queue_timing.error or "Enqueue failed")
-                    self.logger.error(
-                        "[QUEUE] company=%s enqueue_failed error=%s",
-                        seed.name,
-                        queue_timing.error or "Enqueue failed",
+                    queued_item: EmailQueueItem | None
+                    queued_item, queue_timing = await self._run_stage(
+                        "enqueue",
+                        self.email_queue_service.enqueue(
+                            generated_email=generated_email,
+                            company_id=company_id,
+                            contact_id=contact_id,
+                            recipient_name=recipient["name"],
+                            recipient_email=recipient["email"],
+                            lead_score=float(outbound_score.score),
+                        ),
                     )
+                    result.stage_timings.append(queue_timing)
+                    if queue_timing.success and queued_item is not None:
+                        result.queued = True
+                        self.logger.info(
+                            "[QUEUE] company=%s status=%s queue_id=%s outreach_mode=%s",
+                            seed.name,
+                            queued_item.status.value,
+                            queued_item.id,
+                            outreach_mode.value,
+                        )
+                    else:
+                        result.warnings.append(queue_timing.error or "Enqueue failed")
+                        self.logger.error(
+                            "[QUEUE] company=%s enqueue_failed error=%s",
+                            seed.name,
+                            queue_timing.error or "Enqueue failed",
+                        )
 
         if result.errors:
             result.success = False
@@ -505,8 +534,14 @@ class LeadGenerationOrchestrator:
         )
 
     @staticmethod
-    def _best_recipient(lead: CompleteLead) -> dict[str, str] | None:
+    def _best_recipient(
+        lead: CompleteLead,
+        *,
+        prefer_hiring_inbox: bool = False,
+    ) -> dict[str, str] | None:
         from app.contact_discovery.validators import normalize_person_name
+
+        allow_hiring = bool(settings.allow_hiring_inboxes) and prefer_hiring_inbox
 
         def _display_name(full_name: str | None, first_name: str | None) -> str:
             return (
@@ -515,25 +550,49 @@ class LeadGenerationOrchestrator:
                 or "there"
             )
 
+        def _safe(email: str | None) -> bool:
+            return bool(
+                email
+                and is_outbound_safe_email(email, allow_hiring_inboxes=allow_hiring)
+            )
+
+        # When hiring: prefer talent inboxes (jobs@ / careers@ / hr@) first.
+        if allow_hiring and lead.contacts and lead.contacts.emails:
+            for email in lead.contacts.emails:
+                if is_hiring_inbox_email(email) and _safe(email):
+                    return {"name": "Hiring team", "email": email}
+        if allow_hiring and lead.contacts and lead.contacts.contacts:
+            for contact in lead.contacts.contacts:
+                if contact.email and is_hiring_inbox_email(contact.email) and _safe(
+                    contact.email
+                ):
+                    return {
+                        "name": _display_name(contact.full_name, contact.first_name)
+                        or "Hiring team",
+                        "email": contact.email,
+                    }
+
         # Prefer person / founder-style addresses. Never cold-send hello@ / info@ / support@.
         if lead.lead_intelligence and lead.lead_intelligence.best_contact:
             contact = lead.lead_intelligence.best_contact
-            if contact.email and is_outbound_safe_email(contact.email):
+            if _safe(contact.email):
                 return {
                     "name": _display_name(contact.full_name, contact.first_name),
-                    "email": contact.email,
+                    "email": contact.email or "",
                 }
         if lead.contacts and lead.contacts.contacts:
-            ranked = sorted(lead.contacts.contacts, key=lambda item: item.confidence, reverse=True)
+            ranked = sorted(
+                lead.contacts.contacts, key=lambda item: item.confidence, reverse=True
+            )
             for contact in ranked:
-                if contact.email and is_outbound_safe_email(contact.email):
+                if _safe(contact.email):
                     return {
                         "name": _display_name(contact.full_name, contact.first_name),
-                        "email": contact.email,
+                        "email": contact.email or "",
                     }
         if lead.contacts and lead.contacts.emails:
             for email in lead.contacts.emails:
-                if is_outbound_safe_email(email):
+                if _safe(email):
                     return {"name": "there", "email": email}
         return None
 

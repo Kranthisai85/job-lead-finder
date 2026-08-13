@@ -28,7 +28,51 @@ class EmailPromptContext:
     product_description: str
     contact_first_name: str
     has_mobile_app: bool
+    outreach_mode: str = "none"
+    hiring_summary: str = ""
 
+
+HIRING_WRITING_GUIDE = """
+Goal: get a hiring manager / founder to reply about a mobile or Flutter role OR a contract.
+
+Write like a strong applicant who skimmed their careers page — not a mass pitch.
+
+Required structure (keep short):
+1) subject — unique, role-aware, max ~8 words. Examples (STYLE ONLY):
+   "Flutter role at <Company>?"
+   "mobile hire for <Product>?"
+   "saw your Android/iOS opening"
+2) opening — real first name if provided; otherwise skip greeting.
+3) body — 2–3 short sentences:
+   a) Show you understand the product (one sentence).
+   b) Reference the hiring signal / role angle (mobile, Flutter, engineering).
+   c) State you are a Flutter/mobile developer open to full-time, contract, or project work.
+4) cta — soft ask for a short intro call or CV review.
+5) signature must be exactly "{{sender_name}}"
+
+Hard bans: fake names, {{first_name}}, tech-stack dump, "synergy", long bullets.
+""".strip()
+
+FREELANCE_WRITING_GUIDE = """
+Goal: open a freelance / contract conversation for a Flutter mobile build.
+
+Write like a builder offering a scoped project — not agency spam.
+
+Required structure (keep short):
+1) subject — product-aware mobile angle, max ~8 words. Examples (STYLE ONLY):
+   "<Product> on iPhone yet?"
+   "Flutter MVP for <Company>?"
+   "pocket version of <Product>?"
+2) opening — real first name if provided; otherwise skip greeting.
+3) body — 2–3 short sentences:
+   a) What they build (one sentence).
+   b) Curious observation about mobile / native app timing.
+   c) You do Flutter apps for early teams as contract/freelance work.
+4) cta — soft timing question (roadmap / scoped MVP).
+5) signature must be exactly "{{sender_name}}"
+
+Hard bans: fake names, {{first_name}}, tech-stack dump, "synergy", claiming they "need" an app.
+""".strip()
 
 NATURAL_WRITING_GUIDE = """
 Goal: give a founder a reason to reply — not prove you scraped their website.
@@ -200,20 +244,36 @@ def build_prompt_context(
         product_description=_product_description(lead, personalized),
         contact_first_name=_contact_first_name(lead),
         has_mobile_app=bool(personalized.has_mobile_app),
+        outreach_mode=str(personalized.outreach_mode or "none"),
+        hiring_summary=str(personalized.hiring_summary or ""),
     )
 
 
 def build_email_prompt(context: EmailPromptContext) -> str:
-    return _format_prompt(
-        task=(
+    mode = (context.outreach_mode or "none").strip().lower()
+    if mode == "hiring":
+        guide = HIRING_WRITING_GUIDE
+        task = (
+            "Write one short hiring / contract outreach email for a Flutter mobile "
+            "developer applying to or offering help with this company's open roles.\n\n"
+            f"{guide}"
+        )
+    elif mode == "freelance":
+        guide = FREELANCE_WRITING_GUIDE
+        task = (
+            "Write one short freelance / contract cold email offering a Flutter mobile "
+            "build for this product team.\n\n"
+            f"{guide}"
+        )
+    else:
+        guide = NATURAL_WRITING_GUIDE
+        task = (
             "Write one cold email that makes a founder think: "
             "'this person noticed something interesting about my product.' "
             "Not: 'this person scanned my website and wants to sell development.'\n\n"
-            f"{NATURAL_WRITING_GUIDE}"
-        ),
-        context=context,
-        schema=EMAIL_JSON_SCHEMA,
-    )
+            f"{guide}"
+        )
+    return _format_prompt(task=task, context=context, schema=EMAIL_JSON_SCHEMA)
 
 
 def build_subject_prompt(context: EmailPromptContext) -> str:
@@ -384,9 +444,18 @@ def _format_prompt(*, task: str, context: EmailPromptContext, schema: str) -> st
     flutter_evidence = "yes" if context.is_flutter_lead else "no"
     mobile_found = "yes" if context.has_mobile_app else "no"
     first_name = context.contact_first_name or "(none — do not invent a name)"
+    outreach_mode = (context.outreach_mode or "none").strip() or "none"
+    hiring_summary = (context.hiring_summary or "").strip() or "none"
     # Keep stack as internal-only context; models often copy if labeled "Technologies".
     internal_stack = (
         ", ".join(context.technologies) if context.technologies else "none detected"
+    )
+    offer_line = (
+        "Your concrete offer: Flutter/mobile developer available for full-time, "
+        "contract, or project work"
+        if outreach_mode == "hiring"
+        else "Your concrete offer: Flutter mobile apps for early-stage teams as "
+        "freelance/contract work"
     )
 
     return f"""
@@ -397,13 +466,15 @@ Facts (rewrite in your own words — do not paste template phrases):
 Company brand name: {context.company_name}
 Website: {website}
 What they build (use this): {context.product_description}
+Outreach mode: {outreach_mode}
+Hiring / roles signal: {hiring_summary}
 Industry/category: {industry} / {category}
 Native mobile app found: {mobile_found}
 Mobile note: {context.mobile_opportunity}
 Flutter/Dart evidence: {flutter_evidence}
 Contact first name (only if real): {first_name}
 Known contacts: {context.contacts_summary}
-Your concrete offer: Flutter mobile apps for early-stage teams without adding a full-time engineer
+{offer_line}
 
 INTERNAL ONLY — never mention in subject/opening/body/cta:
 Stack signals: {internal_stack}

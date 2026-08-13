@@ -19,3 +19,6 @@ class PersonalizedEmailContext(BaseModel):
     is_flutter_lead: bool = False
     has_mobile_app: bool = False
     technology_names: list[str] = Field(default_factory=list)
+    # hiring | freelance | none — drives AI email angle
+    outreach_mode: str = "none"
+    hiring_summary: str = ""

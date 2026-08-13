@@ -223,7 +223,9 @@ def test_react_vue_svelte_only_is_not_flutter_lead() -> None:
     )
     assert context.is_flutter_lead is False
     assert "technical partnership" not in context.suggested_value_proposition.lower()
-    assert "full-time engineer" in context.suggested_value_proposition
+    assert context.outreach_mode == "freelance"
+    assert "freelance" in context.suggested_value_proposition.lower()
+    assert "Flutter" in context.suggested_value_proposition
 
 
 def test_no_mobile_app_does_not_imply_flutter() -> None:
@@ -268,7 +270,9 @@ def test_missing_contacts() -> None:
     context = CompanyPersonalizationService().generate(make_lead(with_contacts=False))
     assert "Missing contacts" in context.warnings
     assert context.is_flutter_lead is False
-    assert "mobile" in context.cta_recommendation.lower()
+    assert "flutter" in context.cta_recommendation.lower() or "mobile" in (
+        context.cta_recommendation.lower()
+    )
 
 
 def test_strips_tagline_from_company_name() -> None:

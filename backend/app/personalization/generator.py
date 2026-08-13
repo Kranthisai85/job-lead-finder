@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import re
 
+from app.outreach.opportunity import (
+    OutreachMode,
+    classify_outreach_mode,
+    hiring_roles_summary,
+)
 from app.personalization import prompts
 from app.personalization.types import PersonalizedEmailContext
 from app.pipeline.types import CompleteLead
@@ -24,6 +29,8 @@ class PersonalizationGenerator:
         has_mobile_app = self._has_mobile_app(lead)
         is_flutter_lead = self._is_flutter_lead(lead)
         warnings = self._build_warnings(lead, technology_names, has_mobile_app)
+        outreach_mode = classify_outreach_mode(lead)
+        hiring_summary = hiring_roles_summary(lead)
 
         company_summary = self._company_summary(lead, company_name)
         personalized_opening = self._opening(lead, company_name, technology_names)
@@ -31,9 +38,18 @@ class PersonalizationGenerator:
         technologies_summary = self._technologies_summary(technology_names)
         qualification_summary = self._qualification_summary(lead)
         suggested_value_proposition = self._value_proposition(
-            company_name, has_mobile_app, is_flutter_lead
+            company_name,
+            has_mobile_app,
+            is_flutter_lead,
+            outreach_mode=outreach_mode,
+            hiring_summary=hiring_summary,
         )
-        cta_recommendation = self._cta(lead, company_name, is_flutter_lead)
+        cta_recommendation = self._cta(
+            lead,
+            company_name,
+            is_flutter_lead,
+            outreach_mode=outreach_mode,
+        )
         confidence_score = self._confidence_score(lead, technology_names, has_mobile_app, warnings)
 
         return PersonalizedEmailContext(
@@ -50,6 +66,8 @@ class PersonalizationGenerator:
             is_flutter_lead=is_flutter_lead,
             has_mobile_app=has_mobile_app,
             technology_names=technology_names,
+            outreach_mode=outreach_mode.value,
+            hiring_summary=hiring_summary,
         )
 
     @staticmethod
@@ -255,15 +273,58 @@ class PersonalizationGenerator:
         return template.format(score=qualification.score, reasons_clause=reasons_clause)
 
     @staticmethod
-    def _value_proposition(company_name: str, has_mobile_app: bool, is_flutter_lead: bool) -> str:
+    def _value_proposition(
+        company_name: str,
+        has_mobile_app: bool,
+        is_flutter_lead: bool,
+        *,
+        outreach_mode: OutreachMode = OutreachMode.NONE,
+        hiring_summary: str = "",
+    ) -> str:
+        if outreach_mode == OutreachMode.HIRING:
+            roles = hiring_summary or "your open mobile/engineering roles"
+            return (
+                f"I'm a Flutter / mobile app developer available for {roles} — "
+                f"full-time, contract, or a scoped project with {company_name}."
+            )
+        if outreach_mode == OutreachMode.FREELANCE:
+            return (
+                f"I build Flutter mobile apps for early-stage products like {company_name} "
+                "as a freelance / contract partner when teams want iOS+Android without "
+                "a full in-house mobile hire."
+            )
         if is_flutter_lead:
             return prompts.VALUE_PROP_FLUTTER.format(company=company_name)
         if has_mobile_app:
             return prompts.VALUE_PROP_WITH_MOBILE.format(company=company_name)
         return prompts.VALUE_PROP_GENERIC.format(company=company_name)
 
-    def _cta(self, lead: CompleteLead, company_name: str, is_flutter_lead: bool) -> str:
+    def _cta(
+        self,
+        lead: CompleteLead,
+        company_name: str,
+        is_flutter_lead: bool,
+        *,
+        outreach_mode: OutreachMode = OutreachMode.NONE,
+    ) -> str:
         contact_name = self._best_contact_name(lead)
+        if outreach_mode == OutreachMode.HIRING:
+            if contact_name:
+                return (
+                    f"Would {contact_name} be open to a quick note on how I fit "
+                    f"the mobile role at {company_name}?"
+                )
+            return (
+                f"Open to a short intro about the mobile / Flutter opening at "
+                f"{company_name}?"
+            )
+        if outreach_mode == OutreachMode.FREELANCE:
+            if contact_name:
+                return (
+                    f"Would {contact_name} be open to a 15-min chat about a "
+                    f"scoped Flutter build for {company_name}?"
+                )
+            return f"Worth a quick chat about a Flutter MVP for {company_name}?"
         if contact_name:
             return prompts.CTA_WITH_CONTACT.format(
                 contact_name=contact_name,

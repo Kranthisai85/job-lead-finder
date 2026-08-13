@@ -23,6 +23,8 @@ def _classify_skip(result: LeadGenerationResult) -> str | None:
         return "mailbox_rejected"
     if "below min_lead_score" in blob or "below_min_score" in blob:
         return "low_score"
+    if "no opportunity signal" in blob or "no_opportunity" in blob:
+        return "no_opportunity"
     if result.warnings:
         return "other_skip"
     return None
@@ -60,6 +62,7 @@ def build_statistics(
         skipped_no_mx=skip_counts.get("no_mx", 0),
         skipped_mailbox_rejected=skip_counts.get("mailbox_rejected", 0),
         skipped_low_score=skip_counts.get("low_score", 0),
+        skipped_no_opportunity=skip_counts.get("no_opportunity", 0),
         duration_ms=round(duration_ms, 2),
         skip_reasons=dict(skip_counts),
     )
@@ -107,6 +110,7 @@ def format_run_summary(
         f"[RUN SUMMARY] Skipped — no MX:                {stats.skipped_no_mx}",
         f"[RUN SUMMARY] Skipped — mailbox rejected:     {stats.skipped_mailbox_rejected}",
         f"[RUN SUMMARY] Skipped — low score:            {stats.skipped_low_score}",
+        f"[RUN SUMMARY] Skipped — no opportunity:       {stats.skipped_no_opportunity}",
         f"[RUN SUMMARY] Skipped — other:                {other_skips}",
         f"[RUN SUMMARY] Duration:                       {stats.duration_ms:.0f} ms",
         f"[RUN SUMMARY] Status:                         {status}",

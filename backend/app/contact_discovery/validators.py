@@ -37,10 +37,18 @@ GENERIC_LOCAL_PARTS = {
     "admin",
 }
 
-# Generic inboxes look real but often bounce or go to shared boxes — skip for cold outbound.
+# Shared inboxes that often bounce on cold founder outreach.
+# Hiring inboxes (jobs@ / careers@ / hr@) are gated separately via allow_hiring_inboxes.
 OUTBOUND_SKIP_LOCAL_PARTS: frozenset[str] = frozenset(
-    GENERIC_LOCAL_PARTS
-    | {
+    {
+        "support",
+        "hello",
+        "contact",
+        "info",
+        "sales",
+        "marketing",
+        "team",
+        "admin",
         "hi",
         "hey",
         "mail",
@@ -64,6 +72,22 @@ OUTBOUND_SKIP_LOCAL_PARTS: frozenset[str] = frozenset(
         "do-not-reply",
     }
 )
+
+# Prefer these when the company has a hiring signal (job / talent outreach).
+HIRING_INBOX_LOCAL_PARTS: frozenset[str] = frozenset(
+    {
+        "jobs",
+        "careers",
+        "hiring",
+        "hr",
+        "talent",
+        "recruiting",
+        "recruitment",
+        "people",
+        "join",
+    }
+)
+
 HIGH_VALUE_LOCAL_PARTS = {"founder", "ceo", "cto", "owner", "hiring"}
 
 SUPPORTED_ROLES = (
@@ -181,13 +205,30 @@ def is_generic_inbox_email(email: str | None) -> bool:
         return False
     local = email.split("@", 1)[0].strip().lower()
     local = local.split("+", 1)[0]
+    if local in HIRING_INBOX_LOCAL_PARTS:
+        return True  # hiring inboxes are "generic" unless explicitly allowed
     return local in OUTBOUND_SKIP_LOCAL_PARTS
 
 
-def is_outbound_safe_email(email: str | None) -> bool:
-    """Format-valid and not a generic/shared inbox."""
+def is_hiring_inbox_email(email: str | None) -> bool:
+    """True for jobs@ / careers@ / hr@ style talent inboxes."""
+    if not email or "@" not in email:
+        return False
+    local = email.split("@", 1)[0].strip().lower()
+    local = local.split("+", 1)[0]
+    return local in HIRING_INBOX_LOCAL_PARTS
+
+
+def is_outbound_safe_email(
+    email: str | None,
+    *,
+    allow_hiring_inboxes: bool = False,
+) -> bool:
+    """Format-valid and not a bounce-prone shared inbox (unless hiring inbox allowed)."""
     if not email or not is_valid_email(email):
         return False
+    if allow_hiring_inboxes and is_hiring_inbox_email(email):
+        return True
     return not is_generic_inbox_email(email)
 
 

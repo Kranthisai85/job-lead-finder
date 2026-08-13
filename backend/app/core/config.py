@@ -62,14 +62,19 @@ class Settings(BaseSettings):
     rss_feed_urls: str = (
         "https://inc42.com/feed/,"
         "https://yourstory.com/feed/,"
-        "https://techcrunch.com/tag/india/feed/"
+        "https://techcrunch.com/tag/india/feed/,"
+        # Freelance / mobile hiring signal feeds (company links extracted when present).
+        "https://remotive.com/remote-jobs/software-dev/feed,"
+        "https://weworkremotely.com/categories/remote-programming-jobs.rss"
     )
 
     google_news_max_companies: int = Field(default=40, ge=1, le=200)
     google_news_feed_urls: str = (
         "https://news.google.com/rss/search?q=Indian+startup+launch&hl=en-IN&gl=IN&ceid=IN:en,"
         "https://news.google.com/rss/search?q=startup+raises+funding+India&hl=en-IN&gl=IN&ceid=IN:en,"
-        "https://news.google.com/rss/search?q=new+SaaS+startup+India&hl=en-IN&gl=IN&ceid=IN:en"
+        "https://news.google.com/rss/search?q=new+SaaS+startup+India&hl=en-IN&gl=IN&ceid=IN:en,"
+        "https://news.google.com/rss/search?q=Flutter+developer+hiring+India&hl=en-IN&gl=IN&ceid=IN:en,"
+        "https://news.google.com/rss/search?q=mobile+app+developer+job+India&hl=en-IN&gl=IN&ceid=IN:en"
     )
 
     reddit_user_agent: str = "LeadFinder/1.0 by lead-finder-backend"
@@ -89,6 +94,10 @@ class Settings(BaseSettings):
     )
     # Minimum outbound lead score for email queue eligibility (Step 37).
     min_lead_score: int = Field(default=60, ge=0, le=100)
+    # Only enqueue when hiring (mobile/Flutter/eng) OR freelance (no mobile app) signal.
+    enqueue_require_opportunity_signal: bool = True
+    # Allow jobs@ / careers@ / hr@ when selecting recipients (for hiring outreach).
+    allow_hiring_inboxes: bool = True
 
     crawler_timeout: float = Field(default=20.0, ge=1.0)
     crawler_max_redirects: int = Field(default=5, ge=0)

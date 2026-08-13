@@ -5,6 +5,7 @@ import re
 from app.ai.types import GeneratedEmail
 from app.app_settings.service import AppSettingsService
 from app.contact_discovery.validators import is_outbound_safe_email
+from app.core.config import settings
 from app.core.daily_logging import ensure_daily_run_handler
 from app.core.logger import get_logger
 from app.email.exceptions import SmtpError
@@ -393,8 +394,13 @@ class EmailQueueService:
             return "Missing recipient email"
         if not _RECIPIENT_EMAIL_RE.match(email):
             return "Invalid recipient email"
-        if not is_outbound_safe_email(email):
-            return "Recipient is a generic inbox (hello@/info@/support@) — skip to avoid bounces"
+        if not is_outbound_safe_email(
+            email, allow_hiring_inboxes=settings.allow_hiring_inboxes
+        ):
+            return (
+                "Recipient is a generic inbox (hello@/info@/support@) — "
+                "skip to avoid bounces"
+            )
         if not (entry.subject or "").strip():
             return "Missing email subject"
         if not (entry.body or "").strip():
