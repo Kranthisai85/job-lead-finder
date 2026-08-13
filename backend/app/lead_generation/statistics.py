@@ -73,3 +73,43 @@ def finalize_report(report: LeadGenerationReport) -> LeadGenerationReport:
     )
     report.success = report.statistics.failed == 0 and not report.errors
     return report
+
+
+def format_run_summary(
+    stats: LeadGenerationStatistics,
+    *,
+    total_found: int = 0,
+    unique_companies: int = 0,
+    duplicates_removed: int = 0,
+    personalized: int = 0,
+    success: bool = True,
+) -> str:
+    """Human-readable end-of-run summary for daily logs and Run Now."""
+    other_skips = stats.skip_reasons.get("other_skip", 0)
+    status = "SUCCESS" if success else "FAILED"
+    lines = [
+        "[RUN SUMMARY] ========== Lead generation run ==========",
+        f"[RUN SUMMARY] Fetched (raw from sources):     {total_found}",
+        (
+            f"[RUN SUMMARY] Unique after dedupe:           {unique_companies} "
+            f"(duplicates removed: {duplicates_removed})"
+        ),
+        f"[RUN SUMMARY] Selected for pipeline:          {stats.total_collected}",
+        f"[RUN SUMMARY] Processed:                      {stats.processed}",
+        f"[RUN SUMMARY] Saved to DB (companies):         {stats.persisted}",
+        f"[RUN SUMMARY] Qualified:                      {stats.qualified}",
+        f"[RUN SUMMARY] Personalized:                   {personalized}",
+        f"[RUN SUMMARY] Emails generated:               {stats.emails_generated}",
+        f"[RUN SUMMARY] Shortlisted / queued:           {stats.queued}",
+        f"[RUN SUMMARY] Failed:                         {stats.failed}",
+        f"[RUN SUMMARY] Skipped — duplicate:            {stats.skipped_duplicate}",
+        f"[RUN SUMMARY] Skipped — no recipient email:   {stats.skipped_no_recipient}",
+        f"[RUN SUMMARY] Skipped — no MX:                {stats.skipped_no_mx}",
+        f"[RUN SUMMARY] Skipped — mailbox rejected:     {stats.skipped_mailbox_rejected}",
+        f"[RUN SUMMARY] Skipped — low score:            {stats.skipped_low_score}",
+        f"[RUN SUMMARY] Skipped — other:                {other_skips}",
+        f"[RUN SUMMARY] Duration:                       {stats.duration_ms:.0f} ms",
+        f"[RUN SUMMARY] Status:                         {status}",
+        "[RUN SUMMARY] ========================================",
+    ]
+    return "\n".join(lines)

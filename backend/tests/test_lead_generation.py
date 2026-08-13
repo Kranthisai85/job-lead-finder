@@ -12,8 +12,13 @@ from app.collectors.types import CompanyLead
 from app.email_queue.types import EmailQueueItem, EmailQueueStatus
 from app.lead_generation.orchestrator import LeadGenerationOrchestrator
 from app.lead_generation.service import LeadGenerationService
-from app.lead_generation.statistics import build_statistics
-from app.lead_generation.types import LeadGenerationReport, LeadGenerationResult, StageTiming
+from app.lead_generation.statistics import build_statistics, format_run_summary
+from app.lead_generation.types import (
+    LeadGenerationReport,
+    LeadGenerationResult,
+    LeadGenerationStatistics,
+    StageTiming,
+)
 from app.personalization.types import PersonalizedEmailContext
 from app.pipeline.persistence_types import PersistenceResult
 from app.source_manager.types import SourceCollectionReport
@@ -199,6 +204,10 @@ async def test_runtime_stage_logs_are_emitted(caplog: pytest.LogCaptureFixture) 
     assert "[AI] company=" in messages and "source=" in messages
     assert "[QUEUE] company=" in messages and "status=PENDING" in messages
     assert "[PIPELINE] Completed discovered=" in messages
+    assert "[RUN SUMMARY] Fetched (raw from sources):" in messages
+    assert "[RUN SUMMARY] Qualified:" in messages
+    assert "[RUN SUMMARY] Shortlisted / queued:" in messages
+    assert "[FUNNEL] collected=" in messages
 
 
 @pytest.mark.asyncio
@@ -346,6 +355,33 @@ async def test_statistics_aggregation() -> None:
     assert stats.queued == 1
     assert stats.failed == 1
     assert stats.duration_ms == 123.45
+
+
+def test_format_run_summary_includes_funnel_labels() -> None:
+    summary = format_run_summary(
+        LeadGenerationStatistics(
+            total_collected=10,
+            processed=10,
+            persisted=8,
+            qualified=5,
+            emails_generated=4,
+            queued=3,
+            failed=1,
+            skipped_duplicate=2,
+            skipped_no_recipient=1,
+            duration_ms=1500,
+        ),
+        total_found=20,
+        unique_companies=12,
+        duplicates_removed=8,
+        personalized=4,
+        success=True,
+    )
+    assert "Fetched (raw from sources):     20" in summary
+    assert "Selected for pipeline:          10" in summary
+    assert "Qualified:                      5" in summary
+    assert "Shortlisted / queued:           3" in summary
+    assert "Status:                         SUCCESS" in summary
 
 
 @pytest.mark.asyncio

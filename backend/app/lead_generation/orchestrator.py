@@ -12,7 +12,11 @@ from app.core.logger import get_logger
 from app.email_queue.deliverability import domain_accepts_mail, email_domain, mailbox_accepts_address
 from app.email_queue.service import EmailQueueService
 from app.email_queue.types import EmailQueueItem
-from app.lead_generation.statistics import build_statistics, finalize_report
+from app.lead_generation.statistics import (
+    build_statistics,
+    finalize_report,
+    format_run_summary,
+)
 from app.lead_generation.types import LeadGenerationReport, LeadGenerationResult, StageTiming
 from app.lead_scoring.service import LeadScoringService
 from app.personalization.service import CompanyPersonalizationService
@@ -83,19 +87,31 @@ class LeadGenerationOrchestrator:
                 "[PIPELINE] Collection failed error=%s",
                 collect_timing.error or "Collection failed",
             )
-            return finalize_report(report)
+            finalized = finalize_report(report)
+            self._log_run_summary(finalized, personalized=0)
+            return finalized
 
         seeds = self._to_startup_seeds(collection_report, limit=limit)
         report.statistics.total_collected = len(seeds)
-        self.logger.info("[PIPELINE] Discovered companies count=%d", len(seeds))
+        self.logger.info(
+            "[PIPELINE] Discovered companies fetched=%d unique=%d selected=%d limit=%s",
+            collection_report.total_found,
+            len(collection_report.unique_companies),
+            len(seeds),
+            limit if limit is not None else "none",
+        )
         if not seeds:
             report.warnings.append("No startup seeds collected")
             report.statistics.duration_ms = round((perf_counter() - started) * 1000, 2)
-            self.logger.info(
-                "[PIPELINE] Completed discovered=0 qualified=0 personalized=0 "
-                "emails_generated=0 emails_queued=0 errors=0"
+            finalized = finalize_report(report)
+            self._log_run_summary(
+                finalized,
+                personalized=0,
+                total_found=collection_report.total_found,
+                unique_companies=len(collection_report.unique_companies),
+                duplicates_removed=collection_report.duplicates_removed,
             )
-            return finalize_report(report)
+            return finalized
 
         for seed in seeds:
             result = await self._process_company(
@@ -123,32 +139,61 @@ class LeadGenerationOrchestrator:
                 for timing in item.stage_timings
             )
         )
+        self._log_run_summary(
+            finalized,
+            personalized=personalized,
+            total_found=collection_report.total_found,
+            unique_companies=len(collection_report.unique_companies),
+            duplicates_removed=collection_report.duplicates_removed,
+        )
+        return finalized
+
+    def _log_run_summary(
+        self,
+        report: LeadGenerationReport,
+        *,
+        personalized: int,
+        total_found: int = 0,
+        unique_companies: int = 0,
+        duplicates_removed: int = 0,
+    ) -> None:
+        stats = report.statistics
         self.logger.info(
             "[PIPELINE] Completed discovered=%d qualified=%d personalized=%d "
             "emails_generated=%d emails_queued=%d errors=%d duration_ms=%.2f",
-            finalized.statistics.total_collected,
-            finalized.statistics.qualified,
+            stats.total_collected,
+            stats.qualified,
             personalized,
-            finalized.statistics.emails_generated,
-            finalized.statistics.queued,
-            finalized.statistics.failed + len(finalized.errors),
-            finalized.statistics.duration_ms,
+            stats.emails_generated,
+            stats.queued,
+            stats.failed + len(report.errors),
+            stats.duration_ms,
         )
         self.logger.info(
             "[FUNNEL] collected=%d processed=%d queued=%d "
             "skip_duplicate=%d skip_no_recipient=%d skip_no_mx=%d "
             "skip_mailbox_rejected=%d skip_low_score=%d skip_other=%d",
-            finalized.statistics.total_collected,
-            finalized.statistics.processed,
-            finalized.statistics.queued,
-            finalized.statistics.skipped_duplicate,
-            finalized.statistics.skipped_no_recipient,
-            finalized.statistics.skipped_no_mx,
-            finalized.statistics.skipped_mailbox_rejected,
-            finalized.statistics.skipped_low_score,
-            finalized.statistics.skip_reasons.get("other_skip", 0),
+            stats.total_collected,
+            stats.processed,
+            stats.queued,
+            stats.skipped_duplicate,
+            stats.skipped_no_recipient,
+            stats.skipped_no_mx,
+            stats.skipped_mailbox_rejected,
+            stats.skipped_low_score,
+            stats.skip_reasons.get("other_skip", 0),
         )
-        return finalized
+        self.logger.info(
+            "%s",
+            format_run_summary(
+                stats,
+                total_found=total_found,
+                unique_companies=unique_companies,
+                duplicates_removed=duplicates_removed,
+                personalized=personalized,
+                success=report.success,
+            ),
+        )
 
     async def _process_company(
         self,
